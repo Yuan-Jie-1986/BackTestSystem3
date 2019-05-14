@@ -1,0 +1,61 @@
+
+host: 192.168.1.172
+port: 27017
+db_name: CBNB
+user: yuanjie
+pwd: yuanjie
+
+
+start_date: '20130101'
+end_date: '20181231'
+capital: 1e6
+backtest_mode: OPEN  # 回测方式，CLOSE为以当天收盘价交易
+
+date_type: SHSE # 目前可以选择的是SHSE/NYMEX
+
+switch_contract: 1
+turnover: 1  # 持仓天数，通常是针对横截面的策略，对于CTA策略不太适用
+
+data:
+  -
+    collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
+    obj_field: wind_code
+    obj_content: TA.CZC
+    commodity: TA
+    fields: [OPEN, CLOSE]
+#  -
+#    obj_field: wind_code
+#    obj_content: PP.DCE
+#    commodity: PP
+#    fields: [OPEN, CLOSE]
+#  -
+#    collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
+#    obj_field: tr_code
+#    obj_content: LCOc1
+#    commodity: LCO
+#    fields: [OPEN, CLOSE]
+#    unit_change: dollar
+
+trade_unit:
+  TA: 5
+  PP: 5
+  LCO: 1000
+
+margin_ratio:
+  TA.CZC: 0.07
+  PP.DCE: 0.07
+  LCOc1: 0.05
+
+tcost: 0
+
+tcost_list:
+  TA.CZC:
+    mode: fixed
+    value: 24
+  PP.DCE:
+    mode: percentage
+    value: 0.00024
+
+
+
+
