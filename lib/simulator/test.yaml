@@ -17,24 +17,34 @@ switch_contract: 1
 turnover: 1  # 持仓天数，通常是针对横截面的策略，对于CTA策略不太适用
 
 data:
-  -
-    collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
-    obj_field: wind_code
-    obj_content: TA.CZC
-    commodity: TA
-    fields: [OPEN, CLOSE]
+
+  future_price:  # 该字段不能改变，回测计算pnl的时候需要该字段
+    -
+      collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
+      obj_field: wind_code
+      obj_content: TA.CZC
+      commodity: TA
+      fields: [OPEN, CLOSE, HIGH, LOW]
+
+#    - collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
+#      obj_field: tr_code
+#      obj_content: LCOc1
+#      commodity: LCO
+#      fields: [OPEN, CLOSE, HIGH, LOW]
+#      unit_change: dollar
+
+  spot_price:
+    -
+      collection: SpotMD
+      obj_field: commodity
+      obj_content: "TA内盘人民币价"
+      commodity: TA
+      fields: [price]
 #  -
 #    obj_field: wind_code
 #    obj_content: PP.DCE
 #    commodity: PP
 #    fields: [OPEN, CLOSE]
-#  -
-#    collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
-#    obj_field: tr_code
-#    obj_content: LCOc1
-#    commodity: LCO
-#    fields: [OPEN, CLOSE]
-#    unit_change: dollar
 
 trade_unit:
   TA: 5

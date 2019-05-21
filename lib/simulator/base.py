@@ -1,8 +1,7 @@
 
-
 import sys
-import numpy as np
 import pandas as pd
+import numpy as np
 import pymongo
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
@@ -10,6 +9,168 @@ import pprint
 import yaml
 import os
 from pandas.plotting import register_matplotlib_converters
+
+
+# 需要导入的数据构造类
+class DataClass(object):
+    def __init__(self, nm):
+        self.nm = nm
+        self.ts_data_field = []  # 用来存储时间序列数据的变量名
+        self.ts_string_field = []  # 用来存储时间序列的字符的变量名
+
+    def add_dt(self, dt):
+        self.dt = np.array(dt)
+
+    # 检查时间长度与时间序列的变量长度是否一致
+    def check_len(self):
+        dt_len = len(self.dt)
+        ts_field = self.ts_data_field + self.ts_string_field
+        for field in ts_field:
+            temp = getattr(self, field)
+            if len(temp) != dt_len:
+                raise Exception('%s的%s与时间的长度不一致' % (self.nm, field))
+
+    # 自动检查长度是否一致的装饰器
+    def auto_check(func):
+        def inner(self, *args, **kwargs):
+            func(self, *args, **kwargs)
+            self.check_len()
+            return
+        return inner
+
+    # 添加时间序列的变量
+    @auto_check
+    def add_ts_data(self, obj_name, obj_value):
+        self.ts_data_field.append(obj_name)
+        obj_value = np.array(obj_value)
+        setattr(self, obj_name, obj_value)
+
+    @auto_check
+    def add_ts_string(self, obj_name, obj_value):
+        self.ts_string_field.append(obj_name)
+        obj_value = np.array(obj_value)
+        setattr(self, obj_name, obj_value)
+
+    # 添加变量，主要是起到标识的作用
+    def add_data(self, obj_name, obj_value):
+        setattr(self, obj_name, obj_value)
+
+    # 对于时间序列数据进行填充
+    @auto_check
+    def fillna_ts_data(self, obj_name, method='ffill'):
+        if obj_name not in self.ts_data_field and obj_name not in self.ts_string_field:
+            raise Exception('%s不在时间序列数据列表' % obj_name)
+        temp = getattr(self, obj_name)
+        temp = pd.DataFrame(temp).fillna(method=method).values.flatten()
+        setattr(self, obj_name, temp)
+
+
+    # 根据新的时间序列重新生成时间序列变量
+    @auto_check
+    def rearrange_ts_data(self, dt_new):
+        con1 = np.in1d(self.dt, dt_new)
+        con2 = np.in1d(dt_new, self.dt)
+        for field in self.ts_data_field:
+            temp = np.ones(len(dt_new)) * np.nan
+            temp[con2] = getattr(self, field)[con1]
+            setattr(self, field, temp)
+        for field in self.ts_string_field:
+            temp = np.array(len(dt_new) * [None])
+            temp[con2] = getattr(self, field)[con1]
+            setattr(self, field, temp)
+        self.dt = dt_new
+
+
+# 持仓数据类
+class HoldingClass(object):
+    def __init__(self, dt):
+        # self.asset存储所持有的合约名
+        # self.合约名是持仓数据
+        self.dt = dt
+        self.asset = []
+        self.newest_holdings = {}
+
+    # 检查时间长度与持仓变量长度是否一致
+    def check_len(self):
+        dt_len = len(self.dt)
+        for field in self.asset:
+            temp = getattr(self, field)
+            if len(temp) != dt_len:
+                raise Exception('%s的持仓数据与时间的长度不一致，%s的长度是%d, 时间的长度是%d' %
+                                (field, field, len(temp), dt_len))
+
+    # 自动检查长度是否一致的装饰器
+    def auto_check(func):
+        def inner(self, *args, **kwargs):
+            func(self, *args, **kwargs)
+            self.check_len()
+            return
+        return inner
+
+    # 增加持仓数据
+    @auto_check
+    def add_holdings(self, contract, holdings):
+        self.asset.append(contract)
+        holdings = np.array(holdings)
+        setattr(self, contract, holdings)
+        self.newest_holdings[contract] = holdings[-1]
+
+    # 更新持仓数据
+    @auto_check
+    def update_holdings(self, contract, holdings):
+        if contract not in self.asset:
+            raise Exception('%s合约不在已有的持仓列表中，请检查或使用add_holdings函数' % contract)
+        holdings = np.array(holdings)
+        setattr(self, contract, holdings)
+        self.newest_holdings[contract] = holdings[-1]
+
+
+    # 将持仓情况向后平移
+    @auto_check
+    def shift_holdings(self):
+        for h in self.asset:
+            temp = getattr(self, h)
+            new_holdings = np.zeros(len(self.dt))
+            new_holdings[1:] = temp[:-1]
+            setattr(self, h, new_holdings)
+
+    # 获得最新持仓数据
+    def get_newest_holdings(self):
+        return self.newest_holdings
+
+    # 根据调仓周期对持仓进行调整
+    @auto_check
+    def adjust_holdings_turnover(self, turnover):
+        holding_df = pd.DataFrame()
+        for h in self.asset:
+            holding_df[h] = getattr(self, h)
+        holding_value = holding_df.values
+        count = 0
+        for i in range(1, len(self.dt)):
+            if count == 0 and (holding_value[i] == 0).all():
+                continue
+            elif count == 0 and (holding_value[i] != 0).any():
+                count = 1
+            elif count != 0 and count != turnover:
+                holding_value[i] = holding_value[i - 1]
+                count += 1
+            elif count == turnover and (holding_value[i] == 0).all():
+                count = 0
+            elif count == turnover and (holding_value[i] != 0).any():
+                count = 1
+            else:
+                raise Exception('持仓调整出现错误，请检查')
+        for i in np.arange(len(self.asset)):
+            setattr(self, self.asset[i], holding_value[:, i])
+            self.newest_holdings[self.asset[i]] = holding_value[-1, i]
+
+    # 生成持仓Dataframe
+    def to_frame(self):
+        holding_df = pd.DataFrame()
+        for h in self.asset:
+            holding_df[h] = getattr(self, h)
+        holding_df.index = self.dt
+        return holding_df
 
 
 
@@ -261,81 +422,96 @@ class BacktestSys(object):
         # 根据yaml配置文件从数据库中抓取数据，并对回测进行参数设置
         current_yaml = '.'.join((os.path.splitext(self.current_file)[0], 'yaml'))
         f = open(current_yaml, encoding='utf-8')
-        conf = yaml.load(f, Loader=yaml.FullLoader)
+        self.conf = yaml.load(f, Loader=yaml.FullLoader)
 
         # 回测起始时间
-        self.start_dt = datetime.strptime(conf['start_date'], '%Y%m%d')
+        self.start_dt = datetime.strptime(self.conf['start_date'], '%Y%m%d')
 
         # 回测结束时间
-        self.end_dt = datetime.strptime(conf['end_date'], '%Y%m%d')
+        self.end_dt = datetime.strptime(self.conf['end_date'], '%Y%m%d')
 
         # 初始资金
-        self.capital = np.float(conf['capital'])
+        self.capital = np.float(self.conf['capital'])
 
         # 数据库的配置信息
-        host = conf['host']
-        port = conf['port']
-        usr = conf['user']
-        pwd = conf['pwd']
-        db_nm = conf['db_name']
+        host = self.conf['host']
+        port = self.conf['port']
+        usr = self.conf['user']
+        pwd = self.conf['pwd']
+        db_nm = self.conf['db_name']
 
         conn = pymongo.MongoClient(host=host, port=port)
         self.db = conn[db_nm]
         self.db.authenticate(name=usr, password=pwd)
 
-        # 将需要的数据信息存到字典self.data中，key是各个合约，value仍然是个字典，里面包含需要的字段信息
-        # e.g. self.data = {'TA.CZC': {'CLOSE': [], 'date': []}}
+        # 将需要的数据信息存到字典self.data中，key是yaml中配置的数据分类，比如futures_price，value仍然是个字典，{品种:数据实例}
+        # e.g. self.data = {'future_price': {'TA.CZC': DataClass的实例}}
 
-        raw_data = conf['data']
+        raw_data = self.conf['data']
         self.data = {}
-        self.unit_change = {}  # 计量单位是否需要进行转换
-        self.unit = conf['trade_unit']
-        self.bt_mode = conf['backtest_mode']
-        self.margin_ratio = conf['margin_ratio']
-        self.category = {}
-        self.tcost = conf['tcost']
-        self.switch_contract = conf['switch_contract']
-        self.turnover = conf['turnover']
-        self.exchange_dict = {}
+        self.unit = self.conf['trade_unit']
+        self.bt_mode = self.conf['backtest_mode']
+        self.margin_ratio = self.conf['margin_ratio']
+        self.tcost = self.conf['tcost']
+        self.switch_contract = self.conf['switch_contract']
+        self.turnover = self.conf['turnover']
+        self.exchange_func = {}
 
         if self.tcost:
-            self.tcost_list = conf['tcost_list']
+            self.tcost_list = self.conf['tcost_list']
+        exchange_list = []
+        for sub_class, sub_data in raw_data.items():
+            self.data[sub_class] = {}
+            for d in sub_data:
+                self.data[sub_class][d['obj_content']] = DataClass(nm=d['obj_content'])
+                table = self.db[d['collection']] if 'collection' in d else self.db['FuturesMD']
+                query_arg = {d['obj_field']: d['obj_content'], 'date': {'$gte': self.start_dt, '$lte': self.end_dt}}
+                projection_fields = ['date'] + d['fields']
+                if self.switch_contract:
+                    projection_fields = projection_fields + ['switch_contract', 'specific_contract']
+                res = table.find(query_arg, projection_fields).sort('date', pymongo.ASCENDING)
+                df_res = pd.DataFrame.from_records(res)
+                df_res.drop(columns='_id', inplace=True)
+                dict_res = df_res.to_dict(orient='list')
+                self.data[sub_class][d['obj_content']].add_dt(dict_res['date'])
+                for k, v in dict_res.items():
+                    if k != 'date' and k != 'specific_contract':
+                        self.data[sub_class][d['obj_content']].add_ts_data(k, v)
+                    elif k == 'specific_contract':
+                        self.data[sub_class][d['obj_content']].add_ts_string(k, v)
+                self.data[sub_class][d['obj_content']].add_data('commodity', d['commodity'])
+                self.data[sub_class][d['obj_content']].add_data('unit_change',
+                                                                d['unit_change'] if 'unit_change' in d else 'unchange')
 
-        for d in raw_data:
-            self.category[d['obj_content']] = d['commodity']
-            table = self.db[d['collection']] if 'collection' in d else self.db['FuturesMD']
-            query_arg = {d['obj_field']: d['obj_content'], 'date': {'$gte': self.start_dt, '$lte': self.end_dt}}
-            projection_fields = ['date'] + d['fields']
-            if self.switch_contract:
-                projection_fields = projection_fields + ['switch_contract', 'specific_contract']
-            res = table.find(query_arg, projection_fields).sort('date', pymongo.ASCENDING)
-            df_res = pd.DataFrame.from_records(res)
-            df_res.drop(columns='_id', inplace=True)
-            self.data[d['obj_content']] = df_res.to_dict(orient='list')
-            self.unit_change[d['obj_content']] = d['unit_change'] if 'unit_change' in d else 'rmb'
+                exchange_list.append(self.data[sub_class][d['obj_content']].unit_change)
 
-        # 如果需要导入美元兑人民币汇率
-        if 'dollar' in self.unit_change.values():
+        # 需要导入美元兑人民币数据
+        if 'dollar' in exchange_list:
+            self.exchange_func['dollar'] = 'dollar2rmb'
             query_arg = {'wind_code': 'M0067855', 'date': {'$gte': self.start_dt, '$lte': self.end_dt}}
             projection_fields = ['date', 'CLOSE']
             res = self.db['EDB'].find(query_arg, projection_fields).sort('date', pymongo.ASCENDING)
             df_res = pd.DataFrame.from_records(res)
             df_res.drop(columns='_id', inplace=True)
-            self.dollar2rmb = df_res.to_dict(orient='list')
-            self.exchange_dict['dollar'] = 'dollar2rmb'
-
-
+            dict_res = df_res.to_dict(orient='list')
+            self.dollar2rmb = DataClass(nm=self.exchange_func['dollar'])
+            self.dollar2rmb.add_dt(dict_res['date'])
+            for k, v in dict_res.items():
+                if k != 'date':
+                    self.dollar2rmb.add_ts_data(k, v)
 
         # 将提取的数据按照交易时间的并集重新生成
         date_set = set()
-        for _, v in self.data.items():
-            date_set = date_set.union(v['date'])
+        for sub_class, sub_data in self.data.items():
+            for d in sub_data:
+                date_set = date_set.union(sub_data[d].dt)
         self.dt = np.array(list(date_set))
         self.dt.sort()
 
+
         # 如果定义了date_type，则去调取交易日期序列
-        if 'date_type' in conf:
-            self.date_type = conf['date_type']
+        if 'date_type' in self.conf:
+            self.date_type = self.conf['date_type']
             table = self.db['DateDB']
             query_arg = {'exchange': self.date_type, 'date': {'$gte': self.start_dt, '$lte': self.end_dt}}
             projection_fields = ['date']
@@ -346,108 +522,61 @@ class BacktestSys(object):
             dt_con = np.in1d(self.dt, trading_dt)
             self.dt = self.dt[dt_con]
 
-
         # 根据交易日期序列重新整理数据
-        for k, v in self.data.items():
-            con_1 = np.in1d(self.dt, v['date'])
-            con_2 = np.in1d(v['date'], self.dt)
-            self.data[k].pop('date')
-            for sub_k, sub_v in v.items():
-                if sub_k == 'date':
-                    continue
-                if sub_k == 'specific_contract':
-                    self.data[k][sub_k] = np.array(len(self.dt) * [None])
-                    self.data[k][sub_k][con_1] = np.array(sub_v)[con_2]
-                else:
-                    self.data[k][sub_k] = np.ones(self.dt.shape) * np.nan
-                    self.data[k][sub_k][con_1] = np.array(sub_v)[con_2]
+        for sub_class in self.data:
+            for d in self.data[sub_class]:
+                self.data[sub_class][d].rearrange_ts_data(self.dt)
 
-        # 根据交易日期序列重新整理汇率
-        for k in self.exchange_dict:
-            con_1 = np.in1d(self.dt, getattr(self, self.exchange_dict[k])['date'])
-            con_2 = np.in1d(getattr(self, self.exchange_dict[k])['date'], self.dt)
-            getattr(self, self.exchange_dict[k]).pop('date')
-            close_new = np.ones(self.dt.shape) * np.nan
-            close_new[con_1] = np.array(getattr(self, self.exchange_dict[k])['CLOSE'])[con_2]
+        # 根据交易日期序列重新整理汇率，并且先向后填充，然后再向前填充
+        for k in self.exchange_func:
+            getattr(self, self.exchange_func[k]).rearrange_ts_data(self.dt)
+            getattr(self, self.exchange_func[k]).fillna_ts_data(obj_name='CLOSE', method='ffill')
+            if np.isnan(getattr(self, self.exchange_func[k]).CLOSE).any():
+                print('%s出现了nan值，使用向前填充' % self.exchange_func[k])
+                print(self.dt[np.isnan(getattr(self, self.exchange_func[k]).CLOSE)])
+                getattr(self, self.exchange_func[k]).fillna_ts_data(obj_name='CLOSE', method='bfill')
 
-            close_new = pd.DataFrame(close_new).fillna(method='ffill').values.flatten()
+        # 在exchange_func中增加与unchange对应的函数
+        if 'unchange' in exchange_list:
+            self.exchange_func['unchange'] = 'unchange'
+            self.unchange = DataClass(nm=self.exchange_func['unchange'])
+            self.unchange.add_dt(self.dt)
+            self.unchange.add_ts_data('CLOSE', np.ones(len(self.dt)))
 
-            # 对于汇率来说，如果出现nan值会影响计算，这里需要进行判断
-            if np.isnan(close_new).any():
-                print('%s出现了nan值，使用向前填充' % k)
-                print(self.dt[np.isnan(close_new)])
-                close_new = pd.DataFrame(close_new).fillna(method='bfill').values.flatten()
-
-
-            getattr(self, self.exchange_dict[k])['CLOSE'] = close_new
-
-        if 'rmb' in self.unit_change.values():
-            self.rmb = {'CLOSE': np.ones(len(self.dt))}
-            self.exchange_dict['rmb'] = 'rmb'
-
-
-
-        # # 对当天没有交易的品种的OPEN进行修正处理
-        # for k in self.data:
-        #     try:
-        #         self.data[k]['OPEN'][np.isnan(self.data[k]['OPEN'])] = self.data[k]['CLOSE'][np.isnan(self.data[k]['OPEN'])]
-        #     except KeyError:
-        #         continue
 
     def strategy(self):
         raise NotImplementedError
 
-    def wgtsProcess(self, wgtsDict):
-        # 对生成的权重进行处理，需要注意的是这个函数要最后再用
-        if self.bt_mode == 'OPEN':
-            # 如果是开盘价进行交易，则将初始权重向后平移一位
-            for k in wgtsDict:
-                res = np.zeros(len(wgtsDict[k]) + 1)
-                res[1:] = wgtsDict[k]
-                wgtsDict[k] = res
-
+    def holdingsProcess(self, holdingsObj):
+        # 对生成的持仓进行处理，需要注意的是这个函数要最后再用
         # 如果在配置文件中的持仓周期大于1，需要对持仓进行调整。通常该参数是针对alpha策略。
         if self.turnover > 1:
             print('根据turnover对持仓进行调整，请检查是否为alpha策略')
-            wgts_df = pd.DataFrame.from_dict(wgtsDict)
-            wgts_value = wgts_df.values
-            wgts_index = wgts_df.index
-            wgts_columns = wgts_df.columns
+            holdingsObj.adjust_holdings_turnover(self.turnover)
 
-            count = 0
-            for i in range(1, len(self.dt)):
+        if self.bt_mode == 'OPEN':
+            # 如果是开盘价进行交易，则将初始持仓向后平移一位
+            holdingsObj.shift_holdings()
 
-                if count == 0 and (wgts_value[i] == 0).all():
-                    continue
-                elif count == 0 and (wgts_value[i] != 0).any():
-                    count = 1
-                elif count != 0 and count != self.turnover:
-                    wgts_value[i] = wgts_value[i-1]
-                    count += 1
-                elif count == self.turnover and (wgts_value[i] == 0).all():
-                    count = 0
-                elif count == self.turnover and (wgts_value[i] != 0).any():
-                    count = 1
-                else:
-                    raise Exception('持仓调整出现错误，请检查')
-
-            wgts_df = pd.DataFrame(wgts_value, index=wgts_index, columns=wgts_columns)
-
-            wgtsDict = wgts_df.to_dict(orient='list')
 
         # 如果当天合约没有交易量，那么需要对权重进行调整
-        for k in wgtsDict:
+        for h in holdingsObj.asset:
+            h_holdings = getattr(holdingsObj, h)
+            h_cls = self.data['future_price'][h].CLOSE
+            if 'OPEN' in self.data['future_price'][h].__dict__:
+                h_opn = self.data['future_price'][h].OPEN
             for i in range(1, len(self.dt)):
-                if np.isnan(self.data[k]['CLOSE'][:i+1]).all():
+                if np.isnan(h_cls[:i+1]).all():
                     continue
-                if np.isnan(self.data[k]['CLOSE'][i]) or ('OPEN' in self.data[k] and np.isnan(self.data[k]['OPEN'][i])):
-                    print('%s合约在%s这一天没有成交，对持仓权重进行了调整，调整前是%f，调整后是%f' % \
-                          (k, self.dt[i].strftime('%Y%m%d'), wgtsDict[k][i], wgtsDict[k][i-1]))
-                    wgtsDict[k][i] = wgtsDict[k][i-1]
+                if (np.isnan(h_cls[i]) or ('OPEN' in self.data['future_price'][h].__dict__ and np.isnan(h_opn[i]))) and \
+                    h_holdings[i] != h_holdings[i-1]:
+                    print('%s合约在%s这一天没有成交，对持仓进行了调整，调整前是%f，调整后是%f' % \
+                          (h, self.dt[i].strftime('%Y%m%d'), h_holdings[i], h_holdings[i - 1]))
+                    h_holdings[i] = h_holdings[i-1]
+                    # setattr(holdingsObj, h, h_holdings)  这一句不用，因为取出的list内存地址是共用的。
+        return holdingsObj
 
-        return wgtsDict
-
-    def wgtsStandardization(self, wgtsDict, mode=0):
+    def holdingsStandardization(self, holdingsObj, mode=0):
         """根据给定的持仓重新生成标准化的持仓：
         mode=0：不加杠杆。所有持仓品种的合约价值相同。每天的持仓情况会根据每日的收盘价而发生变化。这样会产生一些不必要的交易。
                 价格越低，越增加持仓，价格越高，越减少持仓。
@@ -457,113 +586,114 @@ class BacktestSys(object):
         mode=3: 不加杠杆。所有持仓品种按照ATR进行调整，按照ATR来对持仓进行分配。计算ATR时需要最高价最低价
         """
         # 合约持仓的dataframe
-        wgts_df = pd.DataFrame.from_dict(wgtsDict)
-        wgts_df.index = self.dt
+        holdings_df = holdingsObj.to_frame()
 
         # 计算出各合约做1手的合约价值
-        cls = {}
-        for k in wgtsDict:
-            cls[k] = self.data[k]['CLOSE'] * self.unit[self.category[k]]
-            cls[k] = cls[k] * getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE']
-        cls_df = pd.DataFrame.from_dict(cls)
+        cls_df = pd.DataFrame()
+        for k, v in self.data['future_price'].items():
+            cls_temp = v.CLOSE * self.unit[v.commodity]
+            unit_change = getattr(self, self.exchange_func[v.unit_change]).CLOSE
+            cls_df[k] = cls_temp * unit_change
         cls_df.index = self.dt
 
         if mode == 0 or mode == 1:
 
             # 根据持仓得到每日的持有几个合约，针对每个合约平均分配资金
-            wgts_num = np.abs(np.sign(wgts_df))
-            wgts_num = wgts_num.sum(axis=1)
-            wgts_num[wgts_num == 0] = np.nan
-            sub_capital = self.capital / wgts_num
+            holdings_num = np.abs(np.sign(holdings_df))
+            holdings_num = holdings_num.sum(axis=1)
+            holdings_num[holdings_num == 0] = np.nan
+            sub_capital = self.capital / holdings_num
 
-            cls_df = cls_df * np.sign(wgts_df)
+            cls_df = cls_df * np.sign(holdings_df)
             cls_df[cls_df == 0] = np.nan
 
-            wgts_new = pd.DataFrame()
+            holdings_new = pd.DataFrame()
             for c in cls_df:
-                wgts_new[c] = sub_capital / cls_df[c]
+                holdings_new[c] = sub_capital / cls_df[c]
 
-            wgts_new.fillna(0, inplace=True)
+            holdings_new.fillna(0, inplace=True)
 
             if mode == 0:
-                wgts_new = wgts_new.round(decimals=0)
-                wgts_new = wgts_new.to_dict(orient='list')
-                return wgts_new
+                holdings_new = holdings_new.round(decimals=0)
+                for h in holdingsObj.asset:
+                    holdingsObj.update_holdings(h, holdings_new[h].values.flatten())
+                return holdingsObj
 
             elif mode == 1:
                 # 判断初始持仓是否与前一天的初始持仓相同
-                wgts_yestd = wgts_df.shift(periods=1)
-                wgts_equal = wgts_df == wgts_yestd
+                holdings_yestd = holdings_df.shift(periods=1)
+                holdings_equal = holdings_df == holdings_yestd
 
                 # 统计当天持仓的合约个数
-                wgts_temp = wgts_df.copy()
-                wgts_temp[wgts_temp == 0] = np.nan
-                wgts_num = wgts_temp.count(axis=1)
-                wgts_num_yestd = wgts_num.shift(periods=1)
+                holdings_temp = holdings_df.copy(deep=True)
+                holdings_temp[holdings_temp == 0] = np.nan
+                holdings_num = holdings_temp.count(axis=1)
+                holdings_num_yestd = holdings_num.shift(periods=1)
 
                 # 统计当天持仓个数是否与前一天持仓个数相同, 如果num_equal是True，那么持仓个数与前一天的相同
-                num_equal = wgts_num == wgts_num_yestd
-                wgts_equal.loc[~num_equal] = False
-                wgts_new[wgts_equal] = np.nan
-                wgts_new.fillna(method='ffill', inplace=True)
-                wgts_new = wgts_new.round(decimals=0)
-                wgts_new = wgts_new.to_dict(orient='list')
+                num_equal = holdings_num == holdings_num_yestd
+                holdings_equal.loc[~num_equal] = False
+                holdings_new[holdings_equal] = np.nan
+                holdings_new.fillna(method='ffill', inplace=True)
+                holdings_new = holdings_new.round(decimals=0)
+                for h in holdingsObj.asset:
+                    holdingsObj.update_holdings(h, holdings_new[h].values.flatten())
+                return holdingsObj
 
-                return wgts_new
 
         elif mode == 2:
             # 计算各合约过去一年的合约价值的标准差
             std_df = cls_df.rolling(window=250, min_periods=200).std()
             # 根据合约价值的标准差的倒数的比例来分配资金
             ratio_df = self.capital / std_df
-            ratio_df[wgts_df == 0] = np.nan
+            ratio_df[holdings_df == 0] = np.nan
             ratio_total = ratio_df.sum(axis=1)
             sub_capital = pd.DataFrame()
             for c in ratio_df:
                 sub_capital[c] = ratio_df[c] / ratio_total * self.capital
 
             # 根据分配资金进行权重的重新生成
-            wgts_new = sub_capital / cls_df * np.sign(wgts_df)
-            wgts_new.fillna(0, inplace=True)
+            holdings_new = sub_capital / cls_df * np.sign(holdings_df)
+            holdings_new.fillna(0, inplace=True)
 
             # 如果初始权重不变，则不对权重进行调整
             # 判断初始持仓是否与前一天的初始持仓相同
-            wgts_yestd = wgts_df.shift(periods=1)
-            wgts_equal = wgts_df == wgts_yestd
+            holdings_yestd = holdings_df.shift(periods=1)
+            holdings_equal = holdings_df == holdings_yestd
 
             # 统计当天持仓的合约个数
-            wgts_temp = wgts_df.copy()
-            wgts_temp[wgts_temp == 0] = np.nan
-            wgts_num = wgts_temp.count(axis=1)
-            wgts_num_yestd = wgts_num.shift(periods=1)
+            holdings_temp = holdings_df.copy(deep=True)
+            holdings_temp[holdings_temp == 0] = np.nan
+            holdings_num = holdings_temp.count(axis=1)
+            holdings_num_yestd = holdings_num.shift(periods=1)
 
             # 统计当天持仓个数是否与前一天持仓个数相同, 如果num_equal是True，那么持仓个数与前一天的相同
-            num_equal = wgts_num == wgts_num_yestd
-            wgts_equal.loc[~num_equal] = False
-            wgts_new[wgts_equal] = np.nan
-            wgts_new.fillna(method='ffill', inplace=True)
-            wgts_new = wgts_new.round(decimals=0)
-            wgts_new = wgts_new.to_dict(orient='list')
-            return wgts_new
+            num_equal = holdings_num == holdings_num_yestd
+            holdings_equal.loc[~num_equal] = False
+            holdings_new[holdings_equal] = np.nan
+            holdings_new.fillna(method='ffill', inplace=True)
+            holdings_new = holdings_new.round(decimals=0)
+
+            for h in holdingsObj.asset:
+                holdingsObj.update_holdings(h, holdings_new[h].values.flatten())
+            return holdingsObj
 
         elif mode == 3:
             # 使用ATR，需要最高价最低价，否则会报错
-            cls_atr = {}
-            high_atr = {}
-            low_atr = {}
-            for k in wgtsDict:
-                cls_atr[k] = self.data[k]['CLOSE'] * self.unit[self.category[k]]
-                cls_atr[k] = cls_atr[k] * getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE']
-                high_atr[k] = self.data[k]['HIGH'] * self.unit[self.category[k]]
-                high_atr[k] = high_atr[k] * getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE']
-                low_atr[k] = self.data[k]['LOW'] * self.unit[self.category[k]]
-                low_atr[k] = low_atr[k] * getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE']
 
-            cls_atr_df = pd.DataFrame.from_dict(cls_atr)
+            cls_atr_df = pd.DataFrame()
+            high_atr_df = pd.DataFrame()
+            low_atr_df = pd.DataFrame()
+            for k, v in self.data['future_price'].items():
+                cls_atr = v.CLOSE * self.unit[v.commodity]
+                high_atr = v.HIGH * self.unit[v.commodity]
+                low_atr = v.LOW * self.unit[v.commodity]
+                unit_change = getattr(self, self.exchange_func[v.unit_change]).CLOSE
+                cls_atr_df[k] = cls_atr * unit_change
+                high_atr_df[k] = high_atr * unit_change
+                low_atr_df[k] = low_atr * unit_change
             cls_atr_df.index = self.dt
-            high_atr_df = pd.DataFrame.from_dict(high_atr)
             high_atr_df.index = self.dt
-            low_atr_df = pd.DataFrame.from_dict(low_atr)
             low_atr_df.index = self.dt
 
             cls_atr_yestd_df = cls_atr_df.shift(periods=1)
@@ -574,218 +704,221 @@ class BacktestSys(object):
 
             true_range = np.maximum(p1, np.maximum(p2, p3))
             atr = pd.DataFrame(true_range).rolling(window=250, min_periods=200).mean()
+
             # 根据合约价值的ATR的倒数的比例来分配资金
             ratio_df = self.capital / atr
-            ratio_df[wgts_df == 0] = np.nan
+            ratio_df[holdings_df == 0] = np.nan
             ratio_total = ratio_df.sum(axis=1)
             sub_capital = pd.DataFrame()
             for c in ratio_df:
                 sub_capital[c] = ratio_df[c] / ratio_total * self.capital
 
             # 根据分配资金进行权重的重新生成
-            wgts_new = sub_capital / cls_df * np.sign(wgts_df)
-            wgts_new.fillna(0, inplace=True)
+            holdings_new = sub_capital / cls_df * np.sign(holdings_df)
+            holdings_new.fillna(0, inplace=True)
 
             # 如果初始权重不变，则不对权重进行调整
             # 判断初始持仓是否与前一天的初始持仓相同
-            wgts_yestd = wgts_df.shift(periods=1)
-            wgts_equal = wgts_df == wgts_yestd
+            holdings_yestd = holdings_df.shift(periods=1)
+            holdings_equal = holdings_df == holdings_yestd
 
             # 统计当天持仓的合约个数
-            wgts_temp = wgts_df.copy()
-            wgts_temp[wgts_temp == 0] = np.nan
-            wgts_num = wgts_temp.count(axis=1)
-            wgts_num_yestd = wgts_num.shift(periods=1)
+            holdings_temp = holdings_df.copy()
+            holdings_temp[holdings_temp == 0] = np.nan
+            holdings_num = holdings_temp.count(axis=1)
+            holdings_num_yestd = holdings_num.shift(periods=1)
 
             # 统计当天持仓个数是否与前一天持仓个数相同, 如果num_equal是True，那么持仓个数与前一天的相同
-            num_equal = wgts_num == wgts_num_yestd
-            wgts_equal.loc[~num_equal] = False
-            wgts_new[wgts_equal] = np.nan
-            wgts_new.fillna(method='ffill', inplace=True)
-            wgts_new = wgts_new.round(decimals=0)
-            wgts_new = wgts_new.to_dict(orient='list')
-            return wgts_new
+            num_equal = holdings_num == holdings_num_yestd
+            holdings_equal.loc[~num_equal] = False
+            holdings_new[holdings_equal] = np.nan
+            holdings_new.fillna(method='ffill', inplace=True)
+            holdings_new = holdings_new.round(decimals=0)
 
-    def getPnlDaily(self, wgtsDict):
-        # 根据权重计算每日的pnl，每日的保证金占用，每日的合约价值
-        # wgtsDict是权重字典，key是合约名，value是该合约权重
-        # 检查权重向量与时间向量长度是否一致
-        # 需要注意的问题是传入的参数如果是字典，那么可能会改变该字典
-        for k, v in wgtsDict.items():
-            if len(v) != len(self.dt):
-                print('%s的权重向量与时间向量长度不一致，%s的权重向量长度为%d，时间向量的长度为%d' % (k, k, len(v), len(self.dt)))
-                raise Exception('权重向量与时间向量长度不一致')
+            for h in holdingsObj.asset:
+                holdingsObj.update_holdings(h, holdings_new[h].values.flatten())
+            return holdingsObj
+
+
+    def getPnlDaily(self, holdingsObj):
+        # 根据持仓情况计算每日的pnl，每日的保证金占用，每日的合约价值
+        # holdingsObj是持仓数据类的实例
+
         pnl_daily = np.zeros_like(self.dt).astype('float')
         margin_occ_daily = np.zeros_like(self.dt).astype('float')
         value_daily = np.zeros_like(self.dt).astype('float')
 
         holdpos = {}
 
+        future_price = self.data['future_price']
+
         for i, v in enumerate(self.dt):
             newtradedaily = []
             mkdata = {}
-            for k, val in wgtsDict.items():
+            for h in holdingsObj.asset:
+
+                cls_td = getattr(future_price[h], 'CLOSE')[i]
+                exrate_td = getattr(self, self.exchange_func[future_price[h].unit_change]).CLOSE[i]
+                holdings_td = getattr(holdingsObj, h)[i]
 
                 # 如果在当前日期该合约没有开始交易，则直接跳出当前循环，进入下一个合约
-
-                if np.isnan(self.data[k]['CLOSE'][:i+1]).all():
+                if np.isnan(future_price[h].CLOSE[:i+1]).all():
                     continue
-
-                if np.isnan(self.data[k]['CLOSE'][i]):
-                    print('%s合约在%s这一天没有收盘数据' % (k, v.strftime('%Y%m%d')))
+                if np.isnan(cls_td):
+                    print('%s合约在%s这一天没有收盘数据' % (h, v.strftime('%Y%m%d')))
                     continue
-
                 # 需要传入的市场数据
-
-                mkdata[k] = {'CLOSE': self.data[k]['CLOSE'][i],
-                             'ExRate': getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i],
-                             'multiplier': self.unit[self.category[k]],
-                             'margin_ratio': self.margin_ratio[k]}
+                mkdata[h] = {'CLOSE': cls_td,
+                             'ExRate': exrate_td ,
+                             'multiplier': self.unit[future_price[h].commodity],
+                             'margin_ratio': self.margin_ratio[h]}
 
                 # 合约首日交易便有持仓时
-                if i == 0 or np.isnan(self.data[k]['CLOSE'][:i]).all():
-                    if val[i] != 0:
+                if i == 0 or np.isnan(future_price[h].CLOSE[:i]).all():
+                    if holdings_td != 0:
                         newtrade = TradeRecordByTimes()
                         newtrade.setDT(v)
-                        newtrade.setContract(k)
-                        newtrade.setCommodity(self.category[k])
-                        newtrade.setPrice(self.data[k][self.bt_mode][i])
-                        newtrade.setExchangRate(getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i])
+                        newtrade.setContract(h)
+                        newtrade.setCommodity(future_price[h].commodity)
+                        newtrade.setPrice(getattr(future_price[h], self.bt_mode)[i])
+                        newtrade.setExchangRate(exrate_td)
                         newtrade.setType(1)
-                        newtrade.setVolume(abs(val[i]))
-                        newtrade.setMultiplier(self.unit[self.category[k]])
-                        newtrade.setDirection(np.sign(val[i]))
+                        newtrade.setVolume(abs(holdings_td))
+                        newtrade.setMultiplier(self.unit[future_price[h].commodity])
+                        newtrade.setDirection(np.sign(holdings_td))
                         if self.tcost:
-                            newtrade.setCost(**self.tcost_list[k])
+                            newtrade.setCost(**self.tcost_list[h])
                         newtrade.calCost()
                         newtradedaily.append(newtrade)
+
                 # 如果不是第一天交易的话，需要前一天的收盘价
                 elif i != 0:
-                    mkdata[k]['PRECLOSE'] = self.data[k]['CLOSE'][i - 1]
-                    mkdata[k]['PRECLOSE_ExRate'] = getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i - 1]
-                    if np.isnan(mkdata[k]['PRECLOSE']):
+                    holdings_ystd = getattr(holdingsObj, h)[i - 1]
+                    mkdata[h]['PRECLOSE'] = future_price[h].CLOSE[i - 1]
+                    mkdata[h]['PRECLOSE_ExRate'] = getattr(self, self.exchange_func[future_price[h].unit_change]).CLOSE[i - 1]
+                    if np.isnan(mkdata[h]['PRECLOSE']):
                         for pre_counter in np.arange(2, i + 1):
-                            if ~np.isnan(self.data[k]['CLOSE'][i - pre_counter]):
-                                mkdata[k]['PRECLOSE'] = self.data[k]['CLOSE'][i - pre_counter]
-                                mkdata[k]['PRECLOSE_ExRate'] = getattr(
-                                    self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i - pre_counter]
-                                print('%s合约在%s使用的PRECLOSE是%d天前的收盘价' % (k, self.dt[i].strftime('%Y%m%d'), pre_counter))
+                            if ~np.isnan(future_price[h].CLOSE[i - pre_counter]):
+                                mkdata[h]['PRECLOSE'] = future_price[h].CLOSE[i - pre_counter]
+                                mkdata[h]['PRECLOSE_ExRate'] = getattr(
+                                    self, self.exchange_func[future_price[h].unit_change]).CLOSE[i - pre_counter]
+                                print('%s合约在%s使用的PRECLOSE是%d天前的收盘价' % (h, self.dt[i].strftime('%Y%m%d'), pre_counter))
                                 break
 
                     # 如果切换主力合约
                     if self.switch_contract:
-                        mkdata[k].update({'switch_contract': self.data[k]['switch_contract'][i],
-                                          'specific_contract': self.data[k]['specific_contract'][i - 1]})
+                        mkdata[h].update({'switch_contract': future_price[h].switch_contract[i],
+                                          'specific_contract': future_price[h].specific_contract[i - 1]})
                         # 如果switch_contract为True，需要前主力合约的OPEN
-
-                        if mkdata[k]['switch_contract'] and ~np.isnan(mkdata[k]['switch_contract']):
+                        if mkdata[h]['switch_contract'] and ~np.isnan(mkdata[h]['switch_contract']):
                             # 这里需要注意的是np.nan也会判断为true，所以需要去掉
                             # 比如MA.CZC在刚开始的时候是没有specific_contract
-
-                            queryArgs = {'wind_code': mkdata[k]['specific_contract'], 'date': self.dt[i]}
+                            # if np.isnan(mkdata[h]['switch_contract']):
+                            #     raise Exception('adsfasdfasdfsafsa')
+                            queryArgs = {'wind_code': mkdata[h]['specific_contract'], 'date': self.dt[i]}
                             projectionField = ['OPEN']
                             table = self.db['FuturesMD']
-
-                            if mkdata[k]['specific_contract'] == 'nan':
+                            if mkdata[h]['specific_contract'] == 'nan':
                                 # 对于MA.CZC, ZC.CZC的品种，之前没有specific_contract字段，使用前一交易日的收盘价
                                 print('%s在%s的前一交易日没有specific_contract字段，使用前一交易日的收盘价换约平仓' % \
-                                      (mkdata[k], self.dt[i].strftime('%Y%m%d')))
-                                old_open = self.data[k]['CLOSE'][i - 1]
-                                old_open_exrate = getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i - 1]
+                                      (mkdata[h], self.dt[i].strftime('%Y%m%d')))
+                                old_open = future_price[h].CLOSE[i - 1]
+                                old_open_exrate = getattr(self, self.exchange_func[future_price[h].unit_change]).CLOSE[i - 1]
                             elif table.find_one(queryArgs, projectionField):
                                 old_open = table.find_one(queryArgs, projectionField)['OPEN']
-                                old_open_exrate = getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i]
+                                old_open_exrate = getattr(self, self.exchange_func[future_price[h].unit_change]).CLOSE[i]
                                 if np.isnan(old_open):
                                     print('%s因为该合约当天没有交易，在%s使用前一天的收盘价作为换约平仓的价格' % \
-                                          (mkdata[k]['specific_contract'], self.dt[i].strftime('%Y%m%d')))
-                                    old_open = mkdata[k]['PRECLOSE']
-                                    old_open_exrate = mkdata[k]['PRECLOSE_ExRate']
+                                          (mkdata[h]['specific_contract'], self.dt[i].strftime('%Y%m%d')))
+                                    # 这样的处理方法有个问题，在实盘的交易中无法实现这样的操作。这里只是回测时的处理方法
+                                    old_open = mkdata[h]['PRECLOSE']
+                                    old_open_exrate = mkdata[h]['PRECLOSE_ExRate']
                             else:
                                 print('%s因为已经到期，在%s使用的是前一天的收盘价作为换约平仓的价格' % \
-                                      (mkdata[k]['specific_contract'], self.dt[i].strftime('%Y%m%d')))
-                                old_open = mkdata[k]['PRECLOSE']
-                                old_open_exrate = mkdata[k]['PRECLOSE_ExRate']
+                                      (mkdata[h]['specific_contract'], self.dt[i].strftime('%Y%m%d')))
+                                old_open = mkdata[h]['PRECLOSE']
+                                old_open_exrate = mkdata[h]['PRECLOSE_ExRate']
 
-                    if self.switch_contract and mkdata[k]['switch_contract'] and ~np.isnan(mkdata[k]['switch_contract'])\
-                            and val[i-1] != 0:
+                    if self.switch_contract and mkdata[h]['switch_contract'] and ~np.isnan(mkdata[h]['switch_contract'])\
+                            and holdings_ystd != 0:
                         newtrade1 = TradeRecordByTimes()
                         newtrade1.setDT(v)
-                        newtrade1.setContract(k)
-                        newtrade1.setCommodity(self.category[k])
+                        newtrade1.setContract(h)
+                        newtrade1.setCommodity(future_price[h].commodity)
                         newtrade1.setPrice(old_open)
                         newtrade1.setExchangRate(old_open_exrate)
-                        newtrade1.setVolume(abs(val[i-1]))
-                        newtrade1.setMultiplier(self.unit[self.category[k]])
-                        newtrade1.setDirection(-np.sign(val[i-1]))
+                        newtrade1.setVolume(abs(holdings_ystd))
+                        newtrade1.setMultiplier(self.unit[future_price[h].commodity])
+                        newtrade1.setDirection(-np.sign(holdings_ystd))
                         if self.tcost:
-                            newtrade1.setCost(**self.tcost_list[k])
+                            newtrade1.setCost(**self.tcost_list[h])
                         newtrade1.calCost()
                         newtradedaily.append(newtrade1)
 
-                        if val[i] != 0:
+                        if holdings_td != 0:
                             newtrade2 = TradeRecordByTimes()
                             newtrade2.setDT(v)
-                            newtrade2.setContract(k)
-                            newtrade2.setCommodity(self.category[k])
-                            newtrade2.setPrice(self.data[k][self.bt_mode][i])
-                            newtrade2.setExchangRate(getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i])
+                            newtrade2.setContract(h)
+                            newtrade2.setCommodity(future_price[h].commodity)
+                            newtrade2.setPrice(getattr(future_price[h], self.bt_mode)[i])
+                            newtrade2.setExchangRate(exrate_td)
                             newtrade2.setType(1)
-                            newtrade2.setVolume(abs(val[i]))
-                            newtrade2.setMultiplier(self.unit[self.category[k]])
-                            newtrade2.setDirection(np.sign(val[i]))
+                            newtrade2.setVolume(abs(holdings_td))
+                            newtrade2.setMultiplier(self.unit[future_price[h].commodity])
+                            newtrade2.setDirection(np.sign(holdings_td))
                             if self.tcost:
                                 newtrade2.setCost(**self.tcost_list[k])
                             newtrade2.calCost()
                             newtradedaily.append(newtrade2)
 
                     else:
-                        if val[i] * val[i-1] < 0:
+                        if holdings_td * holdings_ystd < 0:
                             newtrade1 = TradeRecordByTimes()
                             newtrade1.setDT(v)
-                            newtrade1.setContract(k)
-                            newtrade1.setCommodity(self.category[k])
-                            newtrade1.setPrice(self.data[k][self.bt_mode][i])
-                            newtrade1.setExchangRate(getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i])
+                            newtrade1.setContract(h)
+                            newtrade1.setCommodity(future_price[h].commodity)
+                            newtrade1.setPrice(getattr(future_price[h], self.bt_mode)[i])
+                            newtrade1.setExchangRate(exrate_td)
                             newtrade1.setType(-1)
-                            newtrade1.setVolume(abs(val[i-1]))
-                            newtrade1.setMultiplier(self.unit[self.category[k]])
-                            newtrade1.setDirection(np.sign(val[i]))
+                            newtrade1.setVolume(abs(holdings_ystd))
+                            newtrade1.setMultiplier(self.unit[future_price[h].commodity])
+                            newtrade1.setDirection(np.sign(holdings_td))
                             if self.tcost:
-                                newtrade1.setCost(**self.tcost_list[k])
+                                newtrade1.setCost(**self.tcost_list[h])
                             newtrade1.calCost()
                             newtradedaily.append(newtrade1)
 
                             newtrade2 = TradeRecordByTimes()
                             newtrade2.setDT(v)
-                            newtrade2.setContract(k)
-                            newtrade2.setCommodity(self.category[k])
-                            newtrade2.setPrice(self.data[k][self.bt_mode][i])
-                            newtrade2.setExchangRate(getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i])
+                            newtrade2.setContract(h)
+                            newtrade2.setCommodity(future_price[h].commodity)
+                            newtrade2.setPrice(getattr(future_price[h], self.bt_mode)[i])
+                            newtrade2.setExchangRate(exrate_td)
                             newtrade2.setType(1)
-                            newtrade2.setVolume(abs(val[i]))
-                            newtrade2.setMultiplier(self.unit[self.category[k]])
-                            newtrade2.setDirection(np.sign(val[i]))
+                            newtrade2.setVolume(abs(holdings_td))
+                            newtrade2.setMultiplier(self.unit[future_price[h].commodity])
+                            newtrade2.setDirection(np.sign(holdings_td))
                             if self.tcost:
-                                newtrade2.setCost(**self.tcost_list[k])
+                                newtrade2.setCost(**self.tcost_list[h])
                             newtrade2.calCost()
                             newtradedaily.append(newtrade2)
 
-                        elif val[i] == val[i-1]:  # 没有交易
+                        elif holdings_td == holdings_ystd:  # 没有交易
                             continue
 
                         else:
                             newtrade = TradeRecordByTimes()
                             newtrade.setDT(v)
-                            newtrade.setContract(k)
-                            newtrade.setCommodity(self.category[k])
-                            newtrade.setPrice(self.data[k][self.bt_mode][i])
-                            newtrade.setExchangRate(getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i])
-                            newtrade.setType(np.sign(abs(val[i]) - abs(val[i-1])))
-                            newtrade.setVolume(abs(val[i] - val[i-1]))
-                            newtrade.setMultiplier(self.unit[self.category[k]])
-                            newtrade.setDirection(np.sign(val[i] - val[i-1]))
+                            newtrade.setContract(h)
+                            newtrade.setCommodity(future_price[h].commodity)
+                            newtrade.setPrice(getattr(future_price[h], self.bt_mode)[i])
+                            newtrade.setExchangRate(exrate_td)
+                            newtrade.setType(np.sign(abs(holdings_td) - abs(holdings_ystd)))
+                            newtrade.setVolume(abs(holdings_td - holdings_ystd))
+                            newtrade.setMultiplier(self.unit[future_price[h].commodity])
+                            newtrade.setDirection(np.sign(holdings_td - holdings_ystd))
                             if self.tcost:
-                                newtrade.setCost(**self.tcost_list[k])
+                                newtrade.setCost(**self.tcost_list[h])
                             newtrade.calCost()
                             newtradedaily.append(newtrade)
 
@@ -796,33 +929,31 @@ class BacktestSys(object):
 
         return pnl_daily, margin_occ_daily, value_daily
 
-    def getNV(self, wgtsDict):
+    def getNV(self, holdingsObj):
         # 计算总的资金曲线变化情况
-        return self.capital + np.cumsum(self.getPnlDaily(wgtsDict)[0])
+        return self.capital + np.cumsum(self.getPnlDaily(holdingsObj)[0])
 
-    def statTrade(self, wgtsDict):
+    def statTrade(self, holdingsObj):
         """
-        对每笔交易进行统计，wgtsDict是权重字典
+        对每笔交易进行统计
 
         """
-        # 检查权重向量与时间长度是否一致
-        for k, v in wgtsDict.items():
-            if len(v) != len(self.dt):
-                print('%s的权重向量与时间向量长度不一致' % k)
-                raise Exception(u'权重向量与时间向量长度不一致')
+
         total_pnl = 0.
         trade_record = {}
         uncovered_record = {}
-        for k, v in wgtsDict.items():
 
+        future_price = self.data['future_price']
+        for k in holdingsObj.asset:
             trade_record[k] = []
             uncovered_record[k] = []
             count = 0
-            trade_price = self.data[k][self.bt_mode]
+            trade_price = getattr(future_price[k], self.bt_mode)
+            holdings = getattr(holdingsObj, k)
 
-            for i in range(len(v)):
+            for i in range(len(holdings)):
 
-                if i == 0 and v[i] == 0:
+                if i == 0 and holdings[i] == 0:
                     continue
                 # if np.isnan(trade_price[i]):
                 #     # 需要注意的是如果当天没有成交量，可能一些价格会是nan值，会导致回测计算结果不准确
@@ -831,13 +962,13 @@ class BacktestSys(object):
                 #     continue
 
                 # 如果当天涉及到移仓，需要将昨天的仓位先平掉，然后在新的主力合约上开仓，统一以开盘价平掉旧的主力合约
-                if self.switch_contract and self.data[k]['switch_contract'][i] \
-                    and ~np.isnan(self.data[k]['switch_contract'][i]) and v[i - 1] != 0:
+                if self.switch_contract and future_price[k].switch_contract[i] \
+                    and ~np.isnan(future_price[k].switch_contract[i]) and holdings[i - 1] != 0:
 
                     # 条件中需要加上判断合约是否为nan，否则也会进入到该条件中
 
                     table = self.db['FuturesMD']
-                    res = self.data[k]['specific_contract'][i-1]
+                    res = future_price[k].specific_contract[i-1]
                     # 对于换合约需要平仓的合约均使用开盘价进行平仓
                     queryArgs = {'wind_code': res, 'date': self.dt[i]}
                     projectionField = ['OPEN']
@@ -846,24 +977,24 @@ class BacktestSys(object):
                         # 对于MA.CZC, ZC.CZC的品种，之前没有specific_contract字段，使用前一交易日的收盘价
                         print('%s在%s的前一交易日没有specific_contract字段，使用前一交易日的收盘价换约平仓' % \
                               (k, self.dt[i].strftime('%Y%m%d')))
-                        trade_price_switch = self.data[k]['CLOSE'][i-1]
-                        trade_exrate_switch = getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i-1]
+                        trade_price_switch = future_price[k].CLOSE[i-1]
+                        trade_exrate_switch = getattr(self, self.exchange_func[future_price[k].unit_change]).CLOSE[i-1]
                     elif table.find_one(queryArgs, projectionField):
                         trade_price_switch = table.find_one(queryArgs, projectionField)['OPEN']
-                        trade_exrate_switch = getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i]
+                        trade_exrate_switch = getattr(self, self.exchange_func[future_price[k].unit_change]).CLOSE[i]
                         if np.isnan(trade_price_switch):
                             print('%s因为该合约当天没有交易，在%s使用前一天的收盘价作为换约平仓的价格' % \
                                   (res, self.dt[i].strftime('%Y%m%d')))
-                            trade_price_switch = self.data[k]['CLOSE'][i-1]
-                            trade_exrate_switch = getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i - 1]
+                            trade_price_switch = future_price[k].CLOSE[i-1]
+                            trade_exrate_switch = getattr(self, self.exchange_func[future_price[k].unit_change]).CLOSE[i - 1]
                     else:
                         print('%s因为已经到期，在%s使用的是前一天的收盘价作为换约平仓的价格' % \
                               (res, self.dt[i].strftime('%Y%m%d')))
-                        trade_price_switch = self.data[k]['CLOSE'][i-1]
-                        trade_exrate_switch = getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i - 1]
+                        trade_price_switch = future_price[k].CLOSE[i-1]
+                        trade_exrate_switch = getattr(self, self.exchange_func[future_price[k].unit_change]).CLOSE[i - 1]
 
                     if uncovered_record[k]:
-                        needed_covered = abs(v[i - 1])
+                        needed_covered = abs(holdings[i - 1])
                         uncovered_record_sub = []
                         for j in np.arange(1, len(uncovered_record[k]) + 1):
                             for m in np.arange(1, len(trade_record[k]) + 1):
@@ -884,68 +1015,68 @@ class BacktestSys(object):
                             print(self.dt[i], k, uncovered_record[k])
                             raise Exception('仓位没有完全平掉，请检查')
 
-                        if v[i] != 0:
+                        if holdings[i] != 0:
                             # 对新的主力合约进行开仓
                             count += 1
                             tr_r = TradeRecordByTrade()
                             tr_r.setCounter(count)
                             tr_r.setOpen(trade_price[i])
-                            tr_r.setOpenExchangeRate(getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i])
+                            tr_r.setOpenExchangeRate(getattr(self, self.exchange_func[future_price[k].unit_change]).CLOSE[i])
                             tr_r.setOpenDT(self.dt[i])
-                            tr_r.setCommodity(self.category[k])
-                            tr_r.setVolume(abs(v[i]))
-                            tr_r.setMultiplier(self.unit[self.category[k]])
+                            tr_r.setCommodity(future_price[k].commodity)
+                            tr_r.setVolume(abs(holdings[i]))
+                            tr_r.setMultiplier(self.unit[future_price[k].commodity])
                             tr_r.setContract(k)
-                            tr_r.setDirection(np.sign(v[i]))
+                            tr_r.setDirection(np.sign(holdings[i]))
                             if self.tcost:
                                 tr_r.setTcost(**self.tcost_list[k])
                             trade_record[k].append(tr_r)
                             uncovered_record[k].append(tr_r.count)
 
                 else:
-                    if (v[i] != 0 and i == 0) or (v[i] != 0 and np.isnan(trade_price[:i]).all()):
+                    if (holdings[i] != 0 and i == 0) or (holdings[i] != 0 and np.isnan(trade_price[:i]).all()):
                         # 第一天交易就开仓
                         # 第二种情况是为了排除该品种当天没有交易，价格为nan的这种情况，e.g. 20141202 BU.SHF
                         count += 1
                         tr_r = TradeRecordByTrade()
                         tr_r.setCounter(count)
                         tr_r.setOpen(trade_price[i])
-                        tr_r.setOpenExchangeRate(getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i])
+                        tr_r.setOpenExchangeRate(getattr(self, self.exchange_func[future_price[k].unit_change]).CLOSE[i])
                         tr_r.setOpenDT(self.dt[i])
-                        tr_r.setCommodity(self.category[k])
-                        tr_r.setVolume(abs(v[i]))
-                        tr_r.setMultiplier(self.unit[self.category[k]])
+                        tr_r.setCommodity(future_price[k].commodity)
+                        tr_r.setVolume(abs(holdings[i]))
+                        tr_r.setMultiplier(self.unit[future_price[k].commodity])
                         tr_r.setContract(k)
-                        tr_r.setDirection(np.sign(v[i]))
+                        tr_r.setDirection(np.sign(holdings[i]))
                         if self.tcost:
                             tr_r.setTcost(**self.tcost_list[k])
                         trade_record[k].append(tr_r)
                         uncovered_record[k].append(tr_r.count)
 
-                    elif abs(v[i]) > abs(v[i-1]) and v[i] * v[i-1] >= 0:
+                    elif abs(holdings[i]) > abs(holdings[i-1]) and holdings[i] * holdings[i-1] >= 0:
                         # 新开仓或加仓
 
                         count += 1
                         tr_r = TradeRecordByTrade()
                         tr_r.setCounter(count)
                         tr_r.setOpen(trade_price[i])
-                        tr_r.setOpenExchangeRate(getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i])
+                        tr_r.setOpenExchangeRate(getattr(self, self.exchange_func[future_price[k].unit_change]).CLOSE[i])
                         tr_r.setOpenDT(self.dt[i])
-                        tr_r.setCommodity(self.category[k])
-                        tr_r.setVolume(abs(v[i]) - abs(v[i-1]))
-                        tr_r.setMultiplier(self.unit[self.category[k]])
+                        tr_r.setCommodity(future_price[k].commodity)
+                        tr_r.setVolume(abs(holdings[i]) - abs(holdings[i-1]))
+                        tr_r.setMultiplier(self.unit[future_price[k].commodity])
                         tr_r.setContract(k)
-                        tr_r.setDirection(np.sign(v[i]))
+                        tr_r.setDirection(np.sign(holdings[i]))
                         if self.tcost:
                             tr_r.setTcost(**self.tcost_list[k])
                         trade_record[k].append(tr_r)
                         uncovered_record[k].append(tr_r.count)
 
 
-                    elif abs(v[i]) < abs(v[i-1]) and v[i] * v[i-1] >= 0:
+                    elif abs(holdings[i]) < abs(holdings[i-1]) and holdings[i] * holdings[i-1] >= 0:
 
                         # 减仓或平仓
-                        needed_covered = abs(v[i - 1]) - abs(v[i])  # 需要减仓的数量
+                        needed_covered = abs(holdings[i - 1]) - abs(holdings[i])  # 需要减仓的数量
                         uncovered_record_sub = []
                         uncovered_record_add = []
                         for j in np.arange(1, len(uncovered_record[k]) + 1):
@@ -957,7 +1088,7 @@ class BacktestSys(object):
                                         trade_record[k][-m].setVolume(needed_covered)
                                         trade_record[k][-m].setClose(trade_price[i])
                                         trade_record[k][-m].setCloseExchangeRate(getattr(
-                                            self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i])
+                                            self, self.exchange_func[future_price[k].unit_change]).CLOSE[i])
                                         trade_record[k][-m].setCloseDT(self.dt[i])
                                         trade_record[k][-m].calcHoldingPeriod()
                                         trade_record[k][-m].calcTcost()
@@ -974,9 +1105,9 @@ class BacktestSys(object):
                                         tr_r.setOpen(trade_record[k][-m].open)
                                         tr_r.setOpenExchangeRate(trade_record[k][-m].open_exchange_rate)
                                         tr_r.setOpenDT(trade_record[k][-m].open_dt)
-                                        tr_r.setCommodity(self.category[k])
+                                        tr_r.setCommodity(future_price[k].commodity)
                                         tr_r.setVolume(uncovered_vol)
-                                        tr_r.setMultiplier(self.unit[self.category[k]])
+                                        tr_r.setMultiplier(self.unit[future_price[k].commodity])
                                         tr_r.setContract(k)
                                         tr_r.setDirection(trade_record[k][-m].direction)
                                         if self.tcost:
@@ -986,12 +1117,11 @@ class BacktestSys(object):
 
                                         break
 
-
                                     # 如果需要减仓的数量等于最近的开仓数量
                                     elif needed_covered == trade_record[k][-m].volume:
                                         trade_record[k][-m].setClose(trade_price[i])
                                         trade_record[k][-m].setCloseExchangeRate(getattr(
-                                            self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i])
+                                            self, self.exchange_func[future_price[k].unit_change]).CLOSE[i])
                                         trade_record[k][-m].setCloseDT(self.dt[i])
                                         trade_record[k][-m].calcHoldingPeriod()
                                         trade_record[k][-m].calcTcost()
@@ -1005,7 +1135,7 @@ class BacktestSys(object):
                                     elif needed_covered > trade_record[k][-m].volume:
                                         trade_record[k][-m].setClose(trade_price[i])
                                         trade_record[k][-m].setCloseExchangeRate(getattr(
-                                            self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i])
+                                            self, self.exchange_func[future_price[k].unit_change]).CLOSE[i])
                                         trade_record[k][-m].setCloseDT(self.dt[i])
                                         trade_record[k][-m].calcHoldingPeriod()
                                         trade_record[k][-m].calcTcost()
@@ -1022,10 +1152,10 @@ class BacktestSys(object):
                                     uncovered_record[k].append(tr)
                                 break
 
-                    elif v[i] * v[i-1] < 0:
+                    elif holdings[i] * holdings[i-1] < 0:
 
                         # 先平仓后开仓
-                        needed_covered = abs(v[i - 1])  # 需要减仓的数量
+                        needed_covered = abs(holdings[i - 1])  # 需要减仓的数量
                         uncovered_record_sub = []
                         for j in np.arange(1, len(uncovered_record[k]) + 1):
                             for m in np.arange(1, len(trade_record[k]) + 1):
@@ -1038,7 +1168,7 @@ class BacktestSys(object):
                                     elif needed_covered == trade_record[k][-m].volume:
                                         trade_record[k][-m].setClose(trade_price[i])
                                         trade_record[k][-m].setCloseExchangeRate(getattr(
-                                            self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i])
+                                            self, self.exchange_func[future_price[k].unit_change]).CLOSE[i])
                                         trade_record[k][-m].setCloseDT(self.dt[i])
                                         trade_record[k][-m].calcHoldingPeriod()
                                         trade_record[k][-m].calcTcost()
@@ -1053,7 +1183,7 @@ class BacktestSys(object):
                                     elif needed_covered > trade_record[k][-m].volume:
                                         trade_record[k][-m].setClose(trade_price[i])
                                         trade_record[k][-m].setCloseExchangeRate(getattr(
-                                            self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i])
+                                            self, self.exchange_func[future_price[k].unit_change]).CLOSE[i])
                                         trade_record[k][-m].setCloseDT(self.dt[i])
                                         trade_record[k][-m].calcHoldingPeriod()
                                         trade_record[k][-m].calcTcost()
@@ -1078,13 +1208,13 @@ class BacktestSys(object):
                         tr_r = TradeRecordByTrade()
                         tr_r.setCounter(count)
                         tr_r.setOpen(trade_price[i])
-                        tr_r.setOpenExchangeRate(getattr(self, self.exchange_dict[self.unit_change[k]])['CLOSE'][i])
+                        tr_r.setOpenExchangeRate(getattr(self, self.exchange_func[future_price[k].unit_change]).CLOSE[i])
                         tr_r.setOpenDT(self.dt[i])
-                        tr_r.setCommodity(self.category[k])
-                        tr_r.setVolume(abs(v[i]))
-                        tr_r.setMultiplier(self.unit[self.category[k]])
+                        tr_r.setCommodity(future_price[k].commodity)
+                        tr_r.setVolume(abs(holdings[i]))
+                        tr_r.setMultiplier(self.unit[future_price[k].commodity])
                         tr_r.setContract(k)
-                        tr_r.setDirection(np.sign(v[i]))
+                        tr_r.setDirection(np.sign(holdings[i]))
                         if self.tcost:
                             tr_r.setTcost(**self.tcost_list[k])
                         trade_record[k].append(tr_r)
@@ -1126,31 +1256,21 @@ class BacktestSys(object):
 
         return trade_record
 
-    def displayResult(self, wgtsDict, saveLocal=True):
-        # 需要注意的一个问题是，如果在getPnlDaily函数中改变了wgtsDict，那么之后所用的wgtsDict就都改变了
+    def displayResult(self, holdingsObj, saveLocal=True):
         # saveLocal是逻辑变量，是否将结果存在本地
-        if self.bt_mode == 'OPEN':
-            new_WgtsDict = {}
-            for k in wgtsDict:
-                new_WgtsDict[k] = wgtsDict[k][-1]
-                wgtsDict[k] = wgtsDict[k][:-1]
-        elif self.bt_mode == 'CLOSE':
-            new_WgtsDict = {}
-            for k in wgtsDict:
-                new_WgtsDict[k] = wgtsDict[k][-1]
 
-        pnl, margin_occ, value = self.getPnlDaily(wgtsDict)
+
+        pnl, margin_occ, value = self.getPnlDaily(holdingsObj)
         # print 'nv'
-        df_pnl = pd.DataFrame(np.cumsum(pnl), index=self.dt)
-        df_pnl.to_clipboard()
+        # df_pnl = pd.DataFrame(np.cumsum(pnl), index=self.dt)
+        # df_pnl.to_clipboard()
         nv = 1. + np.cumsum(pnl) / self.capital  # 转换成初始净值为1
         margin_occ_ratio = margin_occ / (self.capital + np.cumsum(pnl))
         # leverage = value / (self.capital + np.cumsum(pnl))
         leverage = value / self.capital
-        trade_record = self.statTrade(wgtsDict)
-        print('==============================回测结果========================')
+        trade_record = self.statTrade(holdingsObj)
+        print('==============================回测结果================================')
         self.calcIndicatorByYear(nv)
-        self.showBTResult(nv)
 
         trade_pnl = []
         for tr in trade_record:
@@ -1161,16 +1281,14 @@ class BacktestSys(object):
             save_path = os.path.splitext(current_file)[0]
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
-            # 保存权重为wgts.csv
-            wgts_df = pd.DataFrame.from_dict(wgtsDict)
-            wgts_df.index = self.dt
-            wgts_df.to_csv(os.path.join(save_path, 'wgts.csv'))
+            # 保存持仓为holdings.csv
+            holdings_df = holdingsObj.to_frame()
+            holdings_df.to_csv(os.path.join(save_path, 'holdings.csv'))
 
             # 保存总的回测结果为result.csv
             total_df = pd.DataFrame({u'每日PnL': pnl, u'净值': nv, u'资金占用比例': margin_occ_ratio, u'杠杆倍数': leverage},
                                     index=self.dt)
             total_df.to_csv(os.path.join(save_path, 'result.csv'), encoding='utf-8')
-
 
             # 保存交易记录为trade_detail.csv
             detail_df = pd.DataFrame()
@@ -1179,11 +1297,10 @@ class BacktestSys(object):
                                       ignore_index=True)
             detail_df.to_csv(os.path.join(save_path, 'details.csv'))
 
-            # 保存最新的权重
-            # if self.bt_mode == 'OPEN':
-            new_wgt = pd.DataFrame.from_dict(new_WgtsDict, orient='index', columns=['WGTS'])
-            new_wgt.sort_values(by='WGTS', ascending=False, inplace=True)
-            new_wgt.to_csv(os.path.join(save_path, 'new_wgts_%s.csv' % datetime.now().strftime('%y%m%d')))
+            # 保存最新的持仓
+            new_holdings = pd.DataFrame.from_dict(holdingsObj.get_newest_holdings(), orient='index', columns=['HOLDINGS'])
+            new_holdings.sort_values(by='HOLDINGS', ascending=False, inplace=True)
+            new_holdings.to_csv(os.path.join(save_path, 'new_holdings_%s.csv' % datetime.now().strftime('%y%m%d')))
 
         trade_pnl = np.array(trade_pnl)
 
@@ -1314,38 +1431,43 @@ class BacktestSys(object):
 
 
 
-
-
 if __name__ == '__main__':
 
-    ttest1 = TradeRecordByTimes()
-    ttest1.setDT('20181203')
-    ttest1.setContract('TA1901.CZC')
-    ttest1.setPrice(6000)
-    ttest1.setVolume(10)
-    ttest1.setDirection(1)
-    ttest1.setType(1)
-    ttest1.setMultiplier(5)
-    ttest1.setMarginRatio(0.1)
-    ttest1.calMarginOccupation()
+    test1 = DataClass(nm='TA.CZC', dt=np.arange(10))
+    a = np.random.randn(10)
+    test1.add_ts_data(obj_name='CLOSE', obj_value=a)
+    test1.rearrange_ts_data(np.arange(20))
+    print(getattr(test1, 'CLOSE'))
+    # test1.check_len()
 
-    # tdtest = TradeRecordByDay(ttest1)
-
-    print(ttest1)
-
-    a1 = {'TA1901.CZC': {}}
-    a2 = dict()
-    a = TradeRecordByDay(dt='20181203', holdPosDict=a2, MkData=a2, newTrade=[])
-    a.addNewPositon()
-    print(a.getFinalMK())
-    print(a.getHoldPosition())
-    # a = BacktestSys()
-    # print a.net_value
-    # print a.calcSharpe()
-    # print a.calcMaxDrawdown()
-    # a.generateNV()
-    # print a.calcBTResult()
-    # plt.plot(a.net_value)
-    # plt.show()
-    # a.start_date = '20180101'
-    # a.prepareData(db='FuturesDailyWind', collection='TA.CZC_Daily', contract='TA.CZC')
+    # ttest1 = TradeRecordByTimes()
+    # ttest1.setDT('20181203')
+    # ttest1.setContract('TA1901.CZC')
+    # ttest1.setPrice(6000)
+    # ttest1.setVolume(10)
+    # ttest1.setDirection(1)
+    # ttest1.setType(1)
+    # ttest1.setMultiplier(5)
+    # ttest1.setMarginRatio(0.1)
+    # ttest1.calMarginOccupation()
+    #
+    # # tdtest = TradeRecordByDay(ttest1)
+    #
+    # print(ttest1)
+    #
+    # a1 = {'TA1901.CZC': {}}
+    # a2 = dict()
+    # a = TradeRecordByDay(dt='20181203', holdPosDict=a2, MkData=a2, newTrade=[])
+    # a.addNewPositon()
+    # print(a.getFinalMK())
+    # print(a.getHoldPosition())
+    # # a = BacktestSys()
+    # # print a.net_value
+    # # print a.calcSharpe()
+    # # print a.calcMaxDrawdown()
+    # # a.generateNV()
+    # # print a.calcBTResult()
+    # # plt.plot(a.net_value)
+    # # plt.show()
+    # # a.start_date = '20180101'
+    # # a.prepareData(db='FuturesDailyWind', collection='TA.CZC_Daily', contract='TA.CZC')
