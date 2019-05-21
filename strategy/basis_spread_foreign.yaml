@@ -1,0 +1,253 @@
+
+host: localhost
+port: 27017
+db_name: CBNB
+user: yuanjie
+pwd: yuanjie
+
+start_date: '20130101'
+end_date: '20190403'
+capital: 5e6
+backtest_mode: CLOSE  # 回测方式，CLOSE为以当天收盘价交易, OPEN为以第二天开盘价交易
+
+switch_contract: 0
+date_type: NYMEX
+turnover: 1
+
+data:
+
+  -
+    collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
+    obj_field: tr_code
+    obj_content: LCOc1
+    commodity: LCO
+    fields: [OPEN, CLOSE]
+    unit_change: dollar  # 如果回测的品种是以外盘计价的，需要乘以汇率
+
+  -
+    obj_field: tr_code
+    obj_content: LCOc2
+    commodity: LCO
+    fields: [OPEN, CLOSE]
+    unit_change: dollar
+
+  -
+    obj_field: tr_code
+    obj_content: CLc1
+    commodity: CL
+    fields: [OPEN, CLOSE]
+    unit_change: dollar
+
+  -
+    obj_field: tr_code
+    obj_content: CLc2
+    commodity: CL
+    fields: [OPEN, CLOSE]
+    unit_change: dollar
+
+  -
+    obj_field: tr_code
+    obj_content: RBc1
+    commodity: RB
+    fields: [OPEN, CLOSE]
+    unit_change: dollar
+
+  -
+    obj_field: tr_code
+    obj_content: RBc2
+    commodity: RB
+    fields: [OPEN, CLOSE]
+    unit_change: dollar
+
+#  -
+#    obj_field: tr_code
+#    obj_content: EBOBNWEMc1
+#    commodity: EBOB
+#    fields: [ CLOSE]
+#    unit_change: dollar
+
+#
+#  -
+#    obj_field: tr_code
+#    obj_content: EBOBNWEMc2
+#    commodity: EBOB
+#    fields: [CLOSE]
+#    unit_change: dollar
+
+
+  -
+    obj_field: tr_code
+    obj_content: NACFRJPSWMc1
+    commodity: MOPJ
+    fields: [CLOSE]
+    unit_change: dollar
+
+
+  -
+    obj_field: tr_code
+    obj_content: NACFRJPSWMc2
+    commodity: MOPJ
+    fields: [CLOSE]
+    unit_change: dollar
+
+
+  -
+    obj_field: tr_code
+    obj_content: MOG92SGMc1
+    commodity: MOG
+    fields: [CLOSE]
+    unit_change: dollar
+
+
+  -
+    obj_field: tr_code
+    obj_content: MOG92SGMc2
+    commodity: MOG
+    fields: [CLOSE]
+    unit_change: dollar
+
+
+  -
+    obj_field: tr_code
+    obj_content: HOc1
+    commodity: HO
+    fields: [OPEN, CLOSE]
+    unit_change: dollar
+
+
+
+  -
+    obj_field: tr_code
+    obj_content: HOc2
+    commodity: HO
+    fields: [CLOSE]
+    unit_change: dollar
+
+
+  -
+    obj_field: tr_code
+    obj_content: LGOc1
+    commodity: LGO
+    fields: [CLOSE]
+    unit_change: dollar
+
+
+  -
+    obj_field: tr_code
+    obj_content: LGOc2
+    commodity: LGO
+    fields: [CLOSE]
+    unit_change: dollar
+
+
+  -
+    obj_field: tr_code
+    obj_content: GO10SGSWMc1
+    commodity: GO
+    fields: [CLOSE]
+    unit_change: dollar
+
+
+  -
+    obj_field: tr_code
+    obj_content: GO10SGSWMc2
+    commodity: GO
+    fields: [CLOSE]
+    unit_change: dollar
+
+  -
+    obj_field: tr_code
+    obj_content: NGc1
+    commodity: NG
+    fields: [CLOSE]
+    unit_change: dollar
+
+  - obj_field: tr_code
+    obj_content: NGc2
+    commodity: NG
+    fields: [CLOSE]
+    unit_change: dollar
+
+
+
+trade_unit:
+  LCO: 1000
+  CL: 1000
+  RB: 42000
+  EBOB: 1000
+  MOPJ: 1000
+  MOG: 1000
+  HO: 42000
+  LGO: 100
+  GO: 1000
+  NG: 10000
+
+margin_ratio:
+  LCOc1: 0.03
+  LCOc2: 0.03
+  CLc1: 0.03
+  CLc2: 0.03
+  RBc1: 0.03
+  RBc2: 0.03
+  EBOBNWEMc1: 0.03
+  EBOBNWEMc2: 0.03
+  NACFRJPSWMc1: 0.03
+  NACFRJPSWMc2: 0.03
+  MOG92SGMc1: 0.03
+  MOG92SGMc2: 0.03
+  HOc1: 0.03
+  HOc2: 0.03
+  LGOc1: 0.03
+  LGOc2: 0.03
+  GO10SGSWMc1: 0.03
+  GO10SGSWMc2: 0.03
+  NGc1: 0.03
+  NGc2: 0.03
+
+
+tcost: 0
+
+tcost_list:
+  TA.CZC:
+    mode: fixed
+    value: 24
+  PP.DCE:
+    mode: percentage
+    value: 0.00024
+  L.DCE:
+    mode: fixed
+    value: 8
+  RB.SHF:
+    mode: percentage
+    value: 0.0004
+  HC.SHF:
+    mode: percentage
+    value: 0.0004
+  J.DCE:
+    mode: percentage
+    value: 0.00024
+  JM.DCE:
+    mode: percentage
+    value: 0.00024
+  I.DCE:
+    mode: percentage
+    value: 0.00048
+  MA.CZC:
+    mode: fixed
+    value: 16
+  ZC.CZC:
+    mode: fixed
+    value: 16
+  BU.SHF:
+    mode: percentage
+    value: 0.0004
+  V.DCE:
+    mode: fixed
+    value: 8
+  EG.DCE:
+    mode: fixed
+    value: 16
+
+
+
+

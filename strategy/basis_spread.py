@@ -1,5 +1,5 @@
 
-from lib.simulator.base import BacktestSys
+from lib.simulator.base import BacktestSys, HoldingClass, DataClass
 import numpy as np
 import re
 import pandas as pd
@@ -12,43 +12,49 @@ class BasisSpread(BacktestSys):
 
     def strategy(self):
 
-        # 生成一个字典，对于每个品种的，期货和现货的名字
-        pairs_dict = {}
-        for k, v in self.category.items():
-            if v not in pairs_dict:
-                pairs_dict[v] = [k]
-            else:
-                pairs_dict[v].append(k)
-
-        basis_spread = {}
+        future_price = self.data['future_price']
+        spot_price = self.data['spot_price']
+        inventory = self.data['inventory']
+        print(inventory)
         basis_spread_ratio = {}
-        wgtsDict = {}
-        patten = re.compile('(?<=\w)\.(?=[A-Z]+)')  # 用来判断是否为期货
-        for k, v in pairs_dict.items():
-            for sub_v in v:
-                if patten.search(sub_v):
-                    futures_contract = sub_v
-                    futures_price = self.data[sub_v]['CLOSE']
-                else:
-                    spot_price = list(self.data[sub_v].values())[0]
-                    spot_price_new = np.ones_like(spot_price) * np.nan
-                    spot_price_new[1:] = spot_price[1:]
+        holdings_dict = {}
+        fp_df = pd.DataFrame()
+        sp_df = pd.DataFrame()
+        iv_df = pd.DataFrame()
 
-            if "futures_contract" not in locals():
-                raise Exception(u'没有期货合约')
+        for k, v in future_price.items():
+            fp_df[v.commodity] = v.CLOSE
+        for k, v in spot_price.items():
+            if 'price' in v.__dict__:
+                sp_df[v.commodity] = v.price
+            elif 'CLOSE' in v.__dict__:
+                sp_df[v.commodity] = v.CLOSE
+        for k, v in inventory.items():
 
-            # bs = 1 - c2_price / c1_price
-            bs = 1 - futures_price / spot_price_new
-            bs_mean = pd.DataFrame(bs).rolling(window=252, min_periods=240).mean().values.flatten()
-            bs_std = pd.DataFrame(bs).rolling(window=252, min_periods=240).std().values.flatten()
-            basis_spread_ratio[futures_contract] = bs #/ bs_std
+            if 'inventory' in v.__dict__:
+                iv_df[v.commodity] = v.inventory
+            elif 'CLOSE' in v.__dict__:
+                iv_df[v.commodity] = v.CLOSE
+        print(iv_df)
+        iv_df.to_clipboard()
 
-            # basis_spread[futures_contract] = spot_price_new - futures_price
-            # basis_spread_ratio[futures_contract] = 1 - futures_price / spot_price_new
-            wgtsDict[futures_contract] = np.zeros_like(self.dt)
 
-            del futures_contract
+        # for k1, v1 in future_price.items():
+        #     holdings_dict[k1] = np.zeros(len(self.dt))
+        #     fp = v1.CLOSE
+        #     for k2, v2 in spot_price.items():
+        #         if v2.commodity == v1.commodity:
+        #             if 'price' in v2.__dict__:
+        #                 sp = v2.price
+        #             elif 'CLOSE' in v2.__dict__:
+        #                 sp = v2.CLOSE
+        #     sp_new = np.ones_like(sp) * np.nan
+        #     sp_new[1:] = sp[1:]
+        #     basis_spread_ratio[k1] = 1 - fp / sp_new
 
+
+
+        holdings = HoldingClass(self.dt)
         for i in np.arange(len(self.dt)):
 
             # 根据基差比例进行交易，多正基差最大的n只，空负基差最小的n只
@@ -65,43 +71,27 @@ class BasisSpread(BacktestSys):
             low_point = bsr_series[num_selection-1]
             high_point = bsr_series[-num_selection]
 
-            # # 计算得到各合约的20日波动
-            # vol_daily = {}
-            # wgt_daily = {}
-            # n = max(0, i - 240)
-            # for k in basis_spread_ratio:
-            #     # vol_daily[k] = np.std(self.data[k]['CLOSE'][n:i]) * self.unit[self.category[k]]
-            #     vol_daily[k] = self.data[k]['CLOSE'][i] * self.unit[self.category[k]]
-            #     wgt_daily[k] = 1. / vol_daily[k]
-            #     # if np.isinf(wgt_daily[k]):
-            #     #     print wgt_daily[k], k, vol_daily[k]
-            #
-            # wgt_min = np.nanmin(wgt_daily.values())
-            # for k in wgt_daily:
-            #     wgt_daily[k] = wgt_daily[k] / wgt_min
-            #     if ~np.isfinite(wgt_daily[k]):
-            #         wgt_daily[k] = 0.
-            #     # if np.isinf(wgt_daily[k]):
-            #     #     wgt_daily[k] = 1.
-
-
             for k in basis_spread_ratio:
                 if basis_spread_ratio[k][i] <= low_point:
-                    wgtsDict[k][i] = -1  #- int(5. * wgt_daily[k])
+                    holdings_dict[k][i] = -1  #- int(5. * wgt_daily[k])
                 elif basis_spread_ratio[k][i] >= high_point:
-                    wgtsDict[k][i] = 1  # int(5. * wgt_daily[k])
+                    holdings_dict[k][i] = 1  # int(5. * wgt_daily[k])
 
-        return wgtsDict
+
+
+        for k, v in holdings_dict.items():
+            holdings.add_holdings(k, v)
+        return holdings
 
 
 if __name__ == '__main__':
     a = BasisSpread()
-    wgtsDict = a.strategy()
-    wgtsDict = a.wgtsStandardization(wgtsDict, mode=2)
-    wgtsDict = a.wgtsProcess(wgtsDict)
-    for k in wgtsDict:
-        wgtsDict[k] = 2 * np.array(wgtsDict[k])
+    holdings = a.strategy()
+    holdings = a.holdingsStandardization(holdings, mode=0)
+    for h in holdings.asset:
+        holdings.update_holdings(h, 2 * getattr(holdings, h))
+    holdings = a.holdingsProcess(holdings)
 
-    a.displayResult(wgtsDict, saveLocal=True)
+    a.displayResult(holdings, saveLocal=True)
 
 

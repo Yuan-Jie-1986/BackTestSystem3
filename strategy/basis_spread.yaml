@@ -16,175 +16,292 @@ turnover: 1
 
 data:
 
-  -
-    collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
-    obj_field: wind_code
-    obj_content: TA.CZC
-    commodity: TA
-    fields: [OPEN, CLOSE, HIGH, LOW]
+  future_price:
 
-  -
-    obj_field: wind_code
-    obj_content: L.DCE
-    commodity: L
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    -
+      collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
+      obj_field: wind_code
+      obj_content: TA.CZC
+      commodity: TA
+      fields: [OPEN, CLOSE, HIGH, LOW]
 
-  -
-    obj_field: wind_code
-    obj_content: MA.CZC
-    commodity: MA
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    -
+      obj_field: wind_code
+      obj_content: L.DCE
+      commodity: L
+      fields: [OPEN, CLOSE, HIGH, LOW]
 
-  -
-    obj_field: wind_code
-    obj_content: RB.SHF
-    commodity: RB
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    -
+      obj_field: wind_code
+      obj_content: MA.CZC
+      commodity: MA
+      fields: [OPEN, CLOSE, HIGH, LOW]
 
-  -
-    obj_field: wind_code
-    obj_content: J.DCE
-    commodity: J
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    -
+      obj_field: wind_code
+      obj_content: RB.SHF
+      commodity: RB
+      fields: [OPEN, CLOSE, HIGH, LOW]
 
-  -
-    obj_field: wind_code
-    obj_content: JM.DCE
-    commodity: JM
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    -
+      obj_field: wind_code
+      obj_content: J.DCE
+      commodity: J
+      fields: [OPEN, CLOSE, HIGH, LOW]
 
-  -
-    obj_field: wind_code
-    obj_content: HC.SHF
-    commodity: HC
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    -
+      obj_field: wind_code
+      obj_content: JM.DCE
+      commodity: JM
+      fields: [OPEN, CLOSE, HIGH, LOW]
 
-  -
-    obj_field: wind_code
-    obj_content: BU.SHF
-    commodity: BU
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    -
+      obj_field: wind_code
+      obj_content: HC.SHF
+      commodity: HC
+      fields: [OPEN, CLOSE, HIGH, LOW]
 
-  -
-    obj_field: wind_code
-    obj_content: ZC.CZC
-    commodity: ZC
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    -
+      obj_field: wind_code
+      obj_content: BU.SHF
+      commodity: BU
+      fields: [OPEN, CLOSE, HIGH, LOW]
 
-  -
-    obj_field: wind_code
-    obj_content: I.DCE
-    commodity: I
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    -
+      obj_field: wind_code
+      obj_content: ZC.CZC
+      commodity: ZC
+      fields: [OPEN, CLOSE, HIGH, LOW]
 
-  -
-    obj_field: wind_code
-    obj_content: PP.DCE
-    commodity: PP
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    -
+      obj_field: wind_code
+      obj_content: I.DCE
+      commodity: I
+      fields: [OPEN, CLOSE, HIGH, LOW]
 
-  -
-    obj_field: wind_code
-    obj_content: V.DCE
-    commodity: V
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    -
+      obj_field: wind_code
+      obj_content: PP.DCE
+      commodity: PP
+      fields: [OPEN, CLOSE, HIGH, LOW]
 
-  -
-    obj_field: wind_code
-    obj_content: EG.DCE
-    commodity: EG
-    fields: [OPEN, CLOSE, HIGH, LOW]
+    -
+      obj_field: wind_code
+      obj_content: V.DCE
+      commodity: V
+      fields: [OPEN, CLOSE, HIGH, LOW]
+
+    -
+      obj_field: wind_code
+      obj_content: EG.DCE
+      commodity: EG
+      fields: [OPEN, CLOSE, HIGH, LOW]
+
+  spot_price:
+    -
+      collection: SpotMD
+      obj_field: edb_name
+      obj_content: "价格:螺纹钢:HRB400 20mm:上海"
+      commodity: RB
+      fields: [CLOSE]
+
+    - collection: SpotMD
+      obj_field: edb_name
+      obj_content: "天津港:平仓价(含税):一级冶金焦(A<12.5%,<0.65%S,CSR>65%,Mt8%):山西产"
+      commodity: J
+      fields: [CLOSE]
+
+    -
+      collection: SpotMD
+      obj_field: edb_name
+      obj_content: "车板价:青岛港:澳大利亚:PB粉矿:61.5%"
+      commodity: I
+      fields: [CLOSE]
+
+    -
+      collection: SpotMD
+      obj_field: edb_name
+      obj_content: "价格:热轧板卷:Q235B:4.75mm:杭州"
+      commodity: HC
+      fields: [CLOSE]
+
+    -
+      collection: SpotMD
+      obj_field: edb_name
+      obj_content: "天津港:库提价(含税):主焦煤(A<8%,V28%,0.8%S,G95,Y20mm):澳大利亚产"
+      commodity: JM
+      fields: [CLOSE]
+
+    -
+      collection: SpotMD
+      obj_field: edb_name
+      obj_content: "秦皇岛港:平仓价:动力末煤(Q5500):山西产"
+      commodity: ZC
+      fields: [CLOSE]
 
 
-  -
-    collection: SpotMD
-    obj_field: edb_name
-    obj_content: "价格:螺纹钢:HRB400 20mm:上海"
-    commodity: RB
-    fields: [CLOSE]
+    -
+      collection: SpotMD
+      obj_field: commodity
+      obj_content: "TA内盘人民币价"
+      commodity: TA
+      fields: [price]
 
-  - collection: SpotMD
-    obj_field: edb_name
-    obj_content: "天津港:平仓价(含税):一级冶金焦(A<12.5%,<0.65%S,CSR>65%,Mt8%):山西产"
-    commodity: J
-    fields: [CLOSE]
+    -
+      collection: SpotMD
+      obj_field: commodity
+      obj_content: "PP华东现货价"
+      commodity: PP
+      fields: [price]
 
-  -
-    collection: SpotMD
-    obj_field: edb_name
-    obj_content: "车板价:青岛港:澳大利亚:PB粉矿:61.5%"
-    commodity: I
-    fields: [CLOSE]
+    -
+      collection: SpotMD
+      obj_field: commodity
+      obj_content: "LL神华煤化工价格"
+      commodity: L
+      fields: [price]
 
-  -
-    collection: SpotMD
-    obj_field: edb_name
-    obj_content: "价格:热轧板卷:Q235B:4.75mm:杭州"
-    commodity: HC
-    fields: [CLOSE]
+    -
+      collection: SpotMD
+      obj_field: commodity
+      obj_content: "甲醇华东（江苏地区）"
+      commodity: MA
+      fields: [price]
 
-  -
-    collection: SpotMD
-    obj_field: edb_name
-    obj_content: "天津港:库提价(含税):主焦煤(A<8%,V28%,0.8%S,G95,Y20mm):澳大利亚产"
-    commodity: JM
-    fields: [CLOSE]
+    -
+      collection: SpotMD
+      obj_field: commodity
+      obj_content: "现货（常州sg-5低端价）"
+      commodity: V
+      fields: [price]
 
-  -
-    collection: SpotMD
-    obj_field: edb_name
-    obj_content: "秦皇岛港:平仓价:动力末煤(Q5500):山西产"
-    commodity: ZC
-    fields: [CLOSE]
+    -
+      collection: SpotMD
+      obj_field: commodity
+      obj_content: "国产重交-山东"
+      commodity: BU
+      fields: [price]
+
+    - collection: SpotMD
+      obj_field: commodity
+      obj_content: "MEG"
+      commodity: EG
+      fields: [price]
+
+  inventory:
+    - collection: Inventory # 如果没有该字段，则默认为FuturesMD
+      obj_field: commodity
+      obj_content: PTA
+      commodity: TA
+      fields: [inventory]
+      category: inventory
+
+    - collection: Inventory
+      obj_field: commodity
+      obj_content: LL
+      commodity: L
+      fields: [inventory]
+      category: inventory
+
+    - collection: Inventory
+      obj_field: commodity
+      obj_content: MA
+      commodity: MA
+      fields: [inventory]
+      category: inventory
+
+    - collection: Inventory
+      obj_field: commodity
+      obj_content: RB
+      commodity: RB
+      fields: [inventory]
+      category: inventory
+
+    - collection: Inventory
+      obj_field: edb_name
+      obj_content: "焦炭库存:天津港"
+      commodity: J
+      fields: [CLOSE]
+      category: inventory
+
+    - collection: Inventory
+      obj_field: edb_name
+      obj_content: "焦炭库存:连云港"
+      commodity: J
+      fields: [CLOSE]
+      category: inventory
+
+    - collection: Inventory
+      obj_field: edb_name
+      obj_content: "焦炭库存:日照港"
+      commodity: J
+      fields: [CLOSE]
+      category: inventory
+
+    - collection: Inventory
+      obj_field: edb_name
+      obj_content: "焦炭库存:青岛港"
+      commodity: J
+      fields: [CLOSE]
+      category: inventory
 
 
-  -
-    collection: SpotMD
-    obj_field: commodity
-    obj_content: "TA内盘人民币价"
-    commodity: TA
-    fields: [price]
+    - collection: Inventory
+      obj_field: edb_name
+      obj_content: "炼焦煤库存:六港口合计"
+      commodity: JM
+      fields: [CLOSE]
+      category: inventory
 
-  -
-    collection: SpotMD
-    obj_field: commodity
-    obj_content: "PP华东现货价"
-    commodity: PP
-    fields: [price]
+    - collection: Inventory
+      obj_field: commodity
+      obj_content: HC
+      commodity: HC
+      fields: [inventory]
+      category: inventory
 
-  -
-    collection: SpotMD
-    obj_field: commodity
-    obj_content: "LL神华煤化工价格"
-    commodity: L
-    fields: [price]
+    - collection: Inventory
+      obj_field: commodity
+      obj_content: BU
+      commodity: BU
+      fields: [inventory]
+      category: inventory
 
-  -
-    collection: SpotMD
-    obj_field: commodity
-    obj_content: "甲醇华东（江苏地区）"
-    commodity: MA
-    fields: [price]
+    - collection: Inventory
+      obj_field: edb_name
+      obj_content: "煤炭库存:秦皇岛港:周"
+      commodity: ZC
+      fields: [CLOSE]
+      category: inventory
 
-  -
-    collection: SpotMD
-    obj_field: commodity
-    obj_content: "现货（常州sg-5低端价）"
-    commodity: V
-    fields: [price]
+    - collection: Inventory
+      obj_field: edb_name
+      obj_content: "全国主要港口:铁矿石库存:总计(45港口)"
+      commodity: I
+      fields: [CLOSE]
+      category: inventory
 
-  -
-    collection: SpotMD
-    obj_field: commodity
-    obj_content: "国产重交-山东"
-    commodity: BU
-    fields: [price]
+    - collection: Inventory
+      obj_field: commodity
+      obj_content: PP
+      commodity: PP
+      fields: [inventory]
+      category: inventory
 
-  - collection: SpotMD
-    obj_field: commodity
-    obj_content: "MEG"
-    commodity: EG
-    fields: [price]
+    - collection: Inventory
+      obj_field: edb_name
+      obj_content: "社会库存:PVC"
+      commodity: V
+      fields: [CLOSE]
+      category: inventory
+
+    - collection: Inventory
+      obj_field: commodity
+      obj_content: MEG
+      commodity: EG
+      fields: [inventory]
+      category: inventory
+
 
 trade_unit:
   TA: 5
