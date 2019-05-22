@@ -45,11 +45,29 @@ class DataClass(object):
         obj_value = np.array(obj_value)
         setattr(self, obj_name, obj_value)
 
+    # 更新时间序列的变量
+    @auto_check
+    def update_ts_data(self, obj_name, obj_value):
+        if obj_name not in self.ts_data_field:
+            raise Exception('%s不在时间序列数据名列表中，请检查或使用add_ts_data函数' % obj_name)
+        obj_value = np.array(obj_value)
+        setattr(self, obj_name, obj_value)
+
+    # 添加时间序列变量，但是字符串类型
     @auto_check
     def add_ts_string(self, obj_name, obj_value):
         self.ts_string_field.append(obj_name)
         obj_value = np.array(obj_value)
         setattr(self, obj_name, obj_value)
+
+    # 更新字符口串类型的时间序列变量
+    @auto_check
+    def update_ts_string(self, obj_name, obj_value):
+        if obj_name not in self.ts_string_field:
+            raise Exception('%s不在字符串类型的时间序列数据名列表中，请检查或使用add_ts_string函数' % obj_name)
+        obj_value = np.array(obj_value)
+        setattr(self, obj_name, obj_value)
+
 
     # 添加变量，主要是起到标识的作用
     def add_data(self, obj_name, obj_value):
@@ -482,6 +500,8 @@ class BacktestSys(object):
                 self.data[sub_class][d['obj_content']].add_data('commodity', d['commodity'])
                 self.data[sub_class][d['obj_content']].add_data('unit_change',
                                                                 d['unit_change'] if 'unit_change' in d else 'unchange')
+                self.data[sub_class][d['obj_content']].add_data('frequency',
+                                                                d['frequency'] if 'frequency' in d else 'daily')
 
                 exchange_list.append(self.data[sub_class][d['obj_content']].unit_change)
 
@@ -507,6 +527,18 @@ class BacktestSys(object):
                 date_set = date_set.union(sub_data[d].dt)
         self.dt = np.array(list(date_set))
         self.dt.sort()
+
+        # 针对周频数据转频到日频
+        for sub_class, sub_data in self.data.items():
+            for d in sub_data:
+                if sub_data[d].frequency == 'weekly':
+                    dt_weekly = sub_data[d].dt
+                    self.data[sub_class][d].add_dt(self.dt)
+                    for f in sub_data[d].ts_data_field:
+                        temp_df = pd.DataFrame(getattr(sub_data[d], f), index=dt_weekly, columns=[f])
+                        temp_df = temp_df.reindex(self.dt)
+                        temp_df.fillna(method='ffill', inplace=True)
+                        self.data[sub_class][d].update_ts_data(f, temp_df.values.flatten())
 
 
         # 如果定义了date_type，则去调取交易日期序列
