@@ -194,56 +194,56 @@ data:
       obj_content: PTA
       commodity: TA
       fields: [inventory]
-      category: inventory
+      frequency: weekly
 
     - collection: Inventory
       obj_field: commodity
       obj_content: LL
       commodity: L
       fields: [inventory]
-      category: inventory
+      frequency: weekly
 
     - collection: Inventory
       obj_field: commodity
       obj_content: MA
       commodity: MA
       fields: [inventory]
-      category: inventory
+      frequency: weekly
 
     - collection: Inventory
       obj_field: commodity
       obj_content: RB
       commodity: RB
       fields: [inventory]
-      category: inventory
+      frequency: weekly
 
     - collection: Inventory
       obj_field: edb_name
       obj_content: "焦炭库存:天津港"
       commodity: J
       fields: [CLOSE]
-      category: inventory
+      frequency: weekly
 
     - collection: Inventory
       obj_field: edb_name
       obj_content: "焦炭库存:连云港"
       commodity: J
       fields: [CLOSE]
-      category: inventory
+      frequency: weekly
 
     - collection: Inventory
       obj_field: edb_name
       obj_content: "焦炭库存:日照港"
       commodity: J
       fields: [CLOSE]
-      category: inventory
+      frequency: weekly
 
     - collection: Inventory
       obj_field: edb_name
       obj_content: "焦炭库存:青岛港"
       commodity: J
       fields: [CLOSE]
-      category: inventory
+      frequency: weekly
 
 
     - collection: Inventory
@@ -251,56 +251,56 @@ data:
       obj_content: "炼焦煤库存:六港口合计"
       commodity: JM
       fields: [CLOSE]
-      category: inventory
+      frequency: weekly
 
     - collection: Inventory
       obj_field: commodity
       obj_content: HC
       commodity: HC
       fields: [inventory]
-      category: inventory
+      frequency: weekly
 
     - collection: Inventory
       obj_field: commodity
       obj_content: BU
       commodity: BU
       fields: [inventory]
-      category: inventory
+      frequency: weekly
 
     - collection: Inventory
       obj_field: edb_name
       obj_content: "煤炭库存:秦皇岛港:周"
       commodity: ZC
       fields: [CLOSE]
-      category: inventory
+      frequency: weekly
 
     - collection: Inventory
       obj_field: edb_name
       obj_content: "全国主要港口:铁矿石库存:总计(45港口)"
       commodity: I
       fields: [CLOSE]
-      category: inventory
+      frequency: weekly
 
     - collection: Inventory
       obj_field: commodity
       obj_content: PP
       commodity: PP
       fields: [inventory]
-      category: inventory
+      frequency: weekly
 
     - collection: Inventory
       obj_field: edb_name
       obj_content: "社会库存:PVC"
       commodity: V
       fields: [CLOSE]
-      category: inventory
+      frequency: weekly
 
     - collection: Inventory
       obj_field: commodity
       obj_content: MEG
       commodity: EG
       fields: [inventory]
-      category: inventory
+      frequency: weekly
 
 
 trade_unit:

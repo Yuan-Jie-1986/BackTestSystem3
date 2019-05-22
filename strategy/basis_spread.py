@@ -15,7 +15,6 @@ class BasisSpread(BacktestSys):
         future_price = self.data['future_price']
         spot_price = self.data['spot_price']
         inventory = self.data['inventory']
-        print(inventory)
         basis_spread_ratio = {}
         holdings_dict = {}
         fp_df = pd.DataFrame()
@@ -30,13 +29,35 @@ class BasisSpread(BacktestSys):
             elif 'CLOSE' in v.__dict__:
                 sp_df[v.commodity] = v.CLOSE
         for k, v in inventory.items():
-
-            if 'inventory' in v.__dict__:
+            if 'inventory' in v.__dict__ and v.commodity not in iv_df:
                 iv_df[v.commodity] = v.inventory
-            elif 'CLOSE' in v.__dict__:
+            elif 'inventory' in v.__dict__ and v.commodity in iv_df:
+                iv_df[v.commodity] += v.inventory
+            elif 'CLOSE' in v.__dict__ and v.commodity not in iv_df:
                 iv_df[v.commodity] = v.CLOSE
+            elif 'CLOSE' in v.__dict__ and v.commodity in iv_df:
+                iv_df[v.commodity] += v.CLOSE
+
+        fp_df.index = self.dt
+        sp_df.index = self.dt
+        iv_df.index = self.dt
+
         print(iv_df)
-        iv_df.to_clipboard()
+
+        # 现货价格向后移一位
+        sp_df = sp_df.shift(periods=1)
+        bs_df = 1. - fp_df / sp_df
+
+        bs_rank = bs_df.rank(axis=1)
+        bs_rank_count = bs_rank.count(axis=1)
+        holdings_num = np.minimum(bs_rank_count // 2, 3)
+        holdings_df = pd.DataFrame(0, index=self.dt, columns=bs_rank.columns)
+
+        for c in holdings_df:
+            holdings_df[c][bs_rank[c] > bs_rank_count - holdings_num] = 1
+            holdings_df[c][bs_rank[c] <= holdings_num] = -1
+
+        print(holdings_df)
 
 
         # for k1, v1 in future_price.items():
@@ -53,43 +74,50 @@ class BasisSpread(BacktestSys):
         #     basis_spread_ratio[k1] = 1 - fp / sp_new
 
 
-
         holdings = HoldingClass(self.dt)
-        for i in np.arange(len(self.dt)):
 
-            # 根据基差比例进行交易，多正基差最大的n只，空负基差最小的n只
-            bsr_daily = []
-            for k in basis_spread_ratio:
-                bsr_daily.append(basis_spread_ratio[k][i])
-            bsr_daily = np.array(bsr_daily)
-            count = len(bsr_daily[~np.isnan(bsr_daily)])
-            if count <= 1:
-                continue
-            bsr_series = bsr_daily[~np.isnan(bsr_daily)]
-            bsr_series.sort()
-            num_selection = min(3, count // 2)
-            low_point = bsr_series[num_selection-1]
-            high_point = bsr_series[-num_selection]
+        for k, v in self.data['future_price'].items():
+            for c in holdings_df:
+                if v.commodity == c:
+                    print(holdings_df[c].values.flatten())
+                    holdings.add_holdings(k, holdings_df[c].values.flatten())
 
-            for k in basis_spread_ratio:
-                if basis_spread_ratio[k][i] <= low_point:
-                    holdings_dict[k][i] = -1  #- int(5. * wgt_daily[k])
-                elif basis_spread_ratio[k][i] >= high_point:
-                    holdings_dict[k][i] = 1  # int(5. * wgt_daily[k])
+        # for i in np.arange(len(self.dt)):
+        #
+        #     # 根据基差比例进行交易，多正基差最大的n只，空负基差最小的n只
+        #     bsr_daily = []
+        #     for k in basis_spread_ratio:
+        #         bsr_daily.append(basis_spread_ratio[k][i])
+        #     bsr_daily = np.array(bsr_daily)
+        #     count = len(bsr_daily[~np.isnan(bsr_daily)])
+        #     if count <= 1:
+        #         continue
+        #     bsr_series = bsr_daily[~np.isnan(bsr_daily)]
+        #     bsr_series.sort()
+        #     num_selection = min(3, count // 2)
+        #     low_point = bsr_series[num_selection-1]
+        #     high_point = bsr_series[-num_selection]
+        #
+        #     for k in basis_spread_ratio:
+        #         if basis_spread_ratio[k][i] <= low_point:
+        #             holdings_dict[k][i] = -1  #- int(5. * wgt_daily[k])
+        #         elif basis_spread_ratio[k][i] >= high_point:
+        #             holdings_dict[k][i] = 1  # int(5. * wgt_daily[k])
+        #
 
 
+        # for k, v in holdings_dict.items():
+        #     holdings.add_holdings(k, v)
 
-        for k, v in holdings_dict.items():
-            holdings.add_holdings(k, v)
         return holdings
 
 
 if __name__ == '__main__':
     a = BasisSpread()
     holdings = a.strategy()
-    holdings = a.holdingsStandardization(holdings, mode=0)
-    for h in holdings.asset:
-        holdings.update_holdings(h, 2 * getattr(holdings, h))
+    holdings = a.holdingsStandardization(holdings, mode=1)
+    # for h in holdings.asset:
+    #     holdings.update_holdings(h, 2 * getattr(holdings, h))
     holdings = a.holdingsProcess(holdings)
 
     a.displayResult(holdings, saveLocal=True)
