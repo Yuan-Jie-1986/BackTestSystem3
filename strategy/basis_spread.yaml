@@ -6,13 +6,14 @@ user: yuanjie
 pwd: yuanjie
 
 start_date: '20130101'
-end_date: '20190422'
+end_date: '20190519'
 capital: 1e6
 backtest_mode: OPEN  # 回测方式，CLOSE为以当天收盘价交易, OPEN为以第二天开盘价交易
 
-switch_contract: 0
+switch_contract: 1
 date_type: SHSE
 turnover: 1
+tcost: 0
 
 data:
 
@@ -333,7 +334,7 @@ margin_ratio:
   V.DCE: 0.07
   EG.DCE: 0.07
 
-tcost: 0
+
 
 tcost_list:
   TA.CZC:
