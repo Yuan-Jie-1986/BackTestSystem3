@@ -202,6 +202,7 @@ class TradeRecordByTimes(object):
         self.trade_price = None  # 交易价格
         self.trade_exchangeRate = None  # 交易时的汇率
         self.trade_volume = None  # 交易量
+        self.trade_amount = None  # 交易额
         self.trade_multiplier = None  # 交易乘数
         self.trade_margin_ratio = None  # 保证金比率
         self.trade_margin_occupation = None  # 保证金占用
@@ -248,10 +249,12 @@ class TradeRecordByTimes(object):
     def calMarginOccupation(self):
         self.trade_margin_occupation = self.trade_price * self.trade_multiplier * self.trade_margin_ratio * \
                                        self.trade_volume * self.trade_exchangeRate
+        return self.trade_margin_occupation
 
     def calValue(self):
         self.trade_commodity_value = self.trade_price * self.trade_multiplier * abs(self.trade_volume) * \
                                      self.trade_exchangeRate
+
 
     def calCost(self):
         if self.trade_cost_mode == 'percentage':
@@ -773,12 +776,17 @@ class BacktestSys(object):
 
 
     def getPnlDaily(self, holdingsObj):
-        # 根据持仓情况计算每日的pnl，每日的保证金占用，每日的合约价值
-        # holdingsObj是持仓数据类的实例
+        '''
+        根据持仓情况计算每日的pnl，每日的保证金占用，每日的合约价值
+        holdingsObj是持仓数据类的实例
+        根据持仓情况统计每日换手率，即成交额/总资金，应该是在0-2之间
+        需要注意的一点是，如果换合约的时候，没有成交量，使用的是之前的价格进行的平仓，导致的回测的pnl和换手不准确，暂时无法解决
+        '''
 
         pnl_daily = np.zeros_like(self.dt).astype('float')
         margin_occ_daily = np.zeros_like(self.dt).astype('float')
         value_daily = np.zeros_like(self.dt).astype('float')
+        turnover_daily = np.zeros_like(self.dt).astype('float')
 
         holdpos = {}
 
@@ -816,11 +824,13 @@ class BacktestSys(object):
                         newtrade.setExchangRate(exrate_td)
                         newtrade.setType(1)
                         newtrade.setVolume(abs(holdings_td))
+                        newtrade.setMarginRatio(self.margin_ratio[h])
                         newtrade.setMultiplier(self.unit[future_price[h].commodity])
                         newtrade.setDirection(np.sign(holdings_td))
                         if self.tcost:
                             newtrade.setCost(**self.tcost_list[h])
                         newtrade.calCost()
+                        turnover_daily[i] += newtrade.calMarginOccupation()
                         newtradedaily.append(newtrade)
 
                 # 如果不是第一天交易的话，需要前一天的收盘价
@@ -880,11 +890,13 @@ class BacktestSys(object):
                         newtrade1.setPrice(old_open)
                         newtrade1.setExchangRate(old_open_exrate)
                         newtrade1.setVolume(abs(holdings_ystd))
+                        newtrade1.setMarginRatio(self.margin_ratio[h])
                         newtrade1.setMultiplier(self.unit[future_price[h].commodity])
                         newtrade1.setDirection(-np.sign(holdings_ystd))
                         if self.tcost:
                             newtrade1.setCost(**self.tcost_list[h])
                         newtrade1.calCost()
+                        turnover_daily[i] += newtrade1.calMarginOccupation()
                         newtradedaily.append(newtrade1)
 
                         if holdings_td != 0:
@@ -896,11 +908,13 @@ class BacktestSys(object):
                             newtrade2.setExchangRate(exrate_td)
                             newtrade2.setType(1)
                             newtrade2.setVolume(abs(holdings_td))
+                            newtrade2.setMarginRatio(self.margin_ratio[h])
                             newtrade2.setMultiplier(self.unit[future_price[h].commodity])
                             newtrade2.setDirection(np.sign(holdings_td))
                             if self.tcost:
-                                newtrade2.setCost(**self.tcost_list[k])
+                                newtrade2.setCost(**self.tcost_list[h])
                             newtrade2.calCost()
+                            turnover_daily[i] += newtrade2.calMarginOccupation()
                             newtradedaily.append(newtrade2)
 
                     else:
@@ -913,11 +927,13 @@ class BacktestSys(object):
                             newtrade1.setExchangRate(exrate_td)
                             newtrade1.setType(-1)
                             newtrade1.setVolume(abs(holdings_ystd))
+                            newtrade1.setMarginRatio(self.margin_ratio[h])
                             newtrade1.setMultiplier(self.unit[future_price[h].commodity])
                             newtrade1.setDirection(np.sign(holdings_td))
                             if self.tcost:
                                 newtrade1.setCost(**self.tcost_list[h])
                             newtrade1.calCost()
+                            turnover_daily[i] += newtrade1.calMarginOccupation()
                             newtradedaily.append(newtrade1)
 
                             newtrade2 = TradeRecordByTimes()
@@ -928,11 +944,13 @@ class BacktestSys(object):
                             newtrade2.setExchangRate(exrate_td)
                             newtrade2.setType(1)
                             newtrade2.setVolume(abs(holdings_td))
+                            newtrade2.setMarginRatio(self.margin_ratio[h])
                             newtrade2.setMultiplier(self.unit[future_price[h].commodity])
                             newtrade2.setDirection(np.sign(holdings_td))
                             if self.tcost:
                                 newtrade2.setCost(**self.tcost_list[h])
                             newtrade2.calCost()
+                            turnover_daily[i] += newtrade2.calMarginOccupation()
                             newtradedaily.append(newtrade2)
 
                         elif holdings_td == holdings_ystd:  # 没有交易
@@ -947,19 +965,22 @@ class BacktestSys(object):
                             newtrade.setExchangRate(exrate_td)
                             newtrade.setType(np.sign(abs(holdings_td) - abs(holdings_ystd)))
                             newtrade.setVolume(abs(holdings_td - holdings_ystd))
+                            newtrade.setMarginRatio(self.margin_ratio[h])
                             newtrade.setMultiplier(self.unit[future_price[h].commodity])
                             newtrade.setDirection(np.sign(holdings_td - holdings_ystd))
                             if self.tcost:
                                 newtrade.setCost(**self.tcost_list[h])
                             newtrade.calCost()
+                            turnover_daily[i] += newtrade.calMarginOccupation()
                             newtradedaily.append(newtrade)
 
             trd = TradeRecordByDay(dt=v, holdPosDict=holdpos, MkData=mkdata, newTrade=newtradedaily)
             trd.addNewPositon()
             pnl_daily[i], margin_occ_daily[i], value_daily[i] = trd.getFinalMK()
             holdpos = trd.getHoldPosition()
+            turnover_daily[i] = turnover_daily[i] / self.capital
 
-        return pnl_daily, margin_occ_daily, value_daily
+        return pnl_daily, margin_occ_daily, value_daily, turnover_daily
 
     def getNV(self, holdingsObj):
         # 计算总的资金曲线变化情况
@@ -1292,7 +1313,7 @@ class BacktestSys(object):
         # saveLocal是逻辑变量，是否将结果存在本地
 
 
-        pnl, margin_occ, value = self.getPnlDaily(holdingsObj)
+        pnl, margin_occ, value, turnover_rate = self.getPnlDaily(holdingsObj)
         # print 'nv'
         # df_pnl = pd.DataFrame(np.cumsum(pnl), index=self.dt)
         # df_pnl.to_clipboard()
@@ -1302,7 +1323,7 @@ class BacktestSys(object):
         leverage = value / self.capital
         trade_record = self.statTrade(holdingsObj)
         print('==============================回测结果================================')
-        self.calcIndicatorByYear(nv)
+        self.calcIndicatorByYear(nv, turnover_rate)
 
         trade_pnl = []
         for tr in trade_record:
@@ -1318,8 +1339,8 @@ class BacktestSys(object):
             holdings_df.to_csv(os.path.join(save_path, 'holdings.csv'))
 
             # 保存总的回测结果为result.csv
-            total_df = pd.DataFrame({u'每日PnL': pnl, u'净值': nv, u'资金占用比例': margin_occ_ratio, u'杠杆倍数': leverage},
-                                    index=self.dt)
+            total_df = pd.DataFrame({u'每日PnL': pnl, u'净值': nv, u'资金占用比例': margin_occ_ratio,
+                                     u'杠杆倍数': leverage, '换手率': turnover_rate}, index=self.dt)
             total_df.to_csv(os.path.join(save_path, 'result.csv'), encoding='utf-8')
 
             # 保存交易记录为trade_detail.csv
@@ -1337,24 +1358,29 @@ class BacktestSys(object):
         trade_pnl = np.array(trade_pnl)
 
         register_matplotlib_converters()
-        plt.subplot(411)
+        plt.subplot(511)
         plt.plot_date(self.dt, nv, fmt='-r', label='PnL')
         plt.grid()
         plt.legend()
 
-        plt.subplot(412)
+        plt.subplot(512)
         plt.hist(trade_pnl[~np.isnan(trade_pnl)], bins=50, label='DistOfPnL', color='r')
         plt.legend()
         plt.grid()
 
-        plt.subplot(413)
+        plt.subplot(513)
         plt.plot_date(self.dt, margin_occ_ratio, fmt='-r', label='margin_occupation_ratio')
         plt.grid()
         plt.legend()
 
 
-        plt.subplot(414)
+        plt.subplot(514)
         plt.plot_date(self.dt, leverage, fmt='-r', label='leverage')
+        plt.grid()
+        plt.legend()
+
+        plt.subplot(515)
+        plt.plot_date(self.dt, turnover_rate, fmt='-r', label='turnover_rate')
         plt.grid()
         plt.legend()
 
@@ -1388,11 +1414,13 @@ class BacktestSys(object):
 
         return annual_rtn, annual_std, sharpe, max_drawdown, max_drawdown_start, max_drawdown_end
 
-    def calcIndicatorByYear(self, net_value):
+    def calcIndicatorByYear(self, net_value, turnover_rate):
 
         # 分年度进行统计，这里需要注意，标准差的计算是使用的无偏
 
         nv = pd.DataFrame(net_value, index=self.dt, columns=['NV'])
+
+        turnover_df = pd.DataFrame(turnover_rate, index=self.dt, columns=['Turnover'])
 
         # ############ 总的统计结果 ################
 
@@ -1400,7 +1428,9 @@ class BacktestSys(object):
         mdd = dd.min().values[0]
         mdd_end = dd.idxmin().values[0]
         mdd_start = nv.loc[:mdd_end].idxmax().values[0]
-        rtn_daily = nv.pct_change()
+        # rtn_daily = nv.pct_change()  # 这个是复利日收益
+        rtn_daily = nv.diff()  # 这个是单利日收益
+
         total_df = pd.DataFrame({'AnnualRtn': rtn_daily.mean().values[0] * 250.,
                                  'AnnualVol': rtn_daily.std().values[0] * np.sqrt(250.),
                                  'Sharpe': rtn_daily.mean().values[0] * np.sqrt(250.) / rtn_daily.std().values[0],
@@ -1409,12 +1439,14 @@ class BacktestSys(object):
                                  'MaxDDEnd': mdd_end,
                                  'Days': nv.count().values[0],
                                  'NetValueInit': nv['NV'].iloc[0],
-                                 'NetValueFinal': nv['NV'].iloc[-1]}, index=['total'])
+                                 'NetValueFinal': nv['NV'].iloc[-1],
+                                 'Turnover': turnover_df.mean().values[0]}, index=['total'])
 
-        # ########### 按年度统计得到的结果 #####################
+        # ################# 按年度统计得到的结果 #####################
 
         rtn_daily['year'] = [i.year for i in rtn_daily.index]
         grouped = rtn_daily.groupby(by='year')
+
         rtn_mean = grouped.mean() * 250.
         rtn_std = grouped.std() * np.sqrt(250.)
         sharpe = rtn_mean / rtn_std
@@ -1429,6 +1461,10 @@ class BacktestSys(object):
         days = nv_grouped.count()
         nv_init = nv_grouped.apply(func=lambda x: x[['NV']].iloc[0])
         nv_final = nv_grouped.apply(func=lambda x: x[['NV']].iloc[-1])
+
+        turnover_df['year'] = [i.year for i in turnover_df.index]
+        turnover_grouped = turnover_df.groupby(by='year')
+        turnover_mean = turnover_grouped.mean()
 
         res_df = pd.DataFrame()
 
@@ -1448,6 +1484,7 @@ class BacktestSys(object):
         res_df = res_df.join(max_drawdown, how='outer')
         res_df = res_df.join(max_drawdown_start, how='outer')
         res_df = res_df.join(max_drawdown_end, how='outer')
+        res_df = res_df.join(turnover_mean, how='outer')
         res_df = res_df.join(days, how='outer')
         res_df = res_df.join(nv_init, how='outer')
         res_df = res_df.join(nv_final, how='outer')
