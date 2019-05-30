@@ -1,0 +1,308 @@
+
+host: localhost
+port: 27017
+db_name: CBNB
+user: yuanjie
+pwd: yuanjie
+
+start_date: '20120101'
+end_date: '20190403'
+capital: 1e6
+backtest_mode: OPEN  # 回测方式，CLOSE为以当天收盘价交易, OPEN为以第二天开盘价交易
+
+date_type: SHSE
+tcost: 0
+switch_contract: 1
+turnover: 1
+
+data:
+
+  future_price:
+    -
+      collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
+      obj_field: wind_code
+      obj_content: TA.CZC
+      commodity: TA
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: L.DCE
+      commodity: L
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: MA.CZC
+      commodity: MA
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: RB.SHF
+      commodity: RB
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: J.DCE
+      commodity: J
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: JM.DCE
+      commodity: JM
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: HC.SHF
+      commodity: HC
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: BU.SHF
+      commodity: BU
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: ZC.CZC
+      commodity: ZC
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: I.DCE
+      commodity: I
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: PP.DCE
+      commodity: PP
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: V.DCE
+      commodity: V
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    - collection: FuturesMD
+      obj_field: wind_code
+      obj_content: AP.CZC
+      commodity: AP
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: SR.CZC
+      commodity: SR
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: CU.SHF
+      commodity: CU
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: AL.SHF
+      commodity: AL
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: RU.SHF
+      commodity: RU
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: AG.SHF
+      commodity: AG
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: RM.CZC
+      commodity: RM
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: NI.SHF
+      commodity: NI
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: C.DCE
+      commodity: C
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: SC.INE
+      commodity: SC
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: FU.SHF
+      commodity: FU
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: M.DCE
+      commodity: M
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: FuturesMD
+      obj_field: wind_code
+      obj_content: FG.CZC
+      commodity: FG
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+
+trade_unit:
+  TA: 5
+  PP: 5
+  L: 5
+  RB: 10
+  HC: 10
+  J: 100
+  JM: 60
+  I: 100
+  MA: 10
+  ZC: 100
+  BU: 10
+  V: 5
+  AP: 10
+  SR: 10
+  CU: 5
+  AL: 5
+  RU: 10
+  AG: 15
+  RM: 10
+  NI: 1
+  C: 10
+  SC: 1000
+  FU: 10
+  M: 10
+  FG: 20
+
+margin_ratio:
+  TA.CZC: 0.07
+  PP.DCE: 0.07
+  L.DCE: 0.07
+  RB.SHF: 0.07
+  HC.SHF: 0.07
+  J.DCE: 0.07
+  JM.DCE: 0.07
+  I.DCE: 0.07
+  MA.CZC: 0.07
+  ZC.CZC: 0.07
+  BU.SHF: 0.07
+  V.DCE: 0.07
+  AP.CZC: 0.07
+  SR.CZC: 0.05
+  CU.SHF: 0.05
+  AL.SHF: 0.05
+  RU.SHF: 0.09
+  AG.SHF: 0.04
+  RM.CZC: 0.06
+  NI.SHF: 0.08
+  C.DCE: 0.07
+  SC.INE: 0.07
+  FU.SHF: 0.08
+  M.DCE: 0.07
+  FG.CZC: 0.07
+
+
+
+
+tcost_list:
+  TA.CZC:
+    mode: fixed
+    value: 24
+  PP.DCE:
+    mode: percentage
+    value: 0.00024
+  L.DCE:
+    mode: fixed
+    value: 8
+  RB.SHF:
+    mode: percentage
+    value: 0.0004
+  HC.SHF:
+    mode: percentage
+    value: 0.0004
+  J.DCE:
+    mode: percentage
+    value: 0.00024
+  JM.DCE:
+    mode: percentage
+    value: 0.00024
+  I.DCE:
+    mode: percentage
+    value: 0.00048
+  MA.CZC:
+    mode: fixed
+    value: 16
+  ZC.CZC:
+    mode: fixed
+    value: 16
+  BU.SHF:
+    mode: percentage
+    value: 0.0004
+  V.DCE:
+    mode: fixed
+    value: 8
+  AP.CZC:
+    mode: fixed
+    value: 20
+#  SR.CZC: 0.05
+#    CU.SHF: 0.05
+#    AL.SHF: 0.05
+  RU.SHF:
+    mode: percentage
+    value: 0.000045
+#    AG.SHF: 0.04
+#    RM.CZC: 0.06
+#    NI.SHF: 0.08
+#    C.DCE: 0.07
+#    SC.INE: 0.07
+  FU.SHF:
+    mode: percentage
+    value: 0.00005
+#    M.DCE: 0.07
+#    FG.CZC: 0.07

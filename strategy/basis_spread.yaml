@@ -6,7 +6,7 @@ user: yuanjie
 pwd: yuanjie
 
 start_date: '20130101'
-end_date: '20190519'
+end_date: '20190422'
 capital: 1e6
 backtest_mode: OPEN  # 回测方式，CLOSE为以当天收盘价交易, OPEN为以第二天开盘价交易
 
@@ -24,79 +24,84 @@ data:
       obj_field: wind_code
       obj_content: TA.CZC
       commodity: TA
-      fields: [OPEN, CLOSE, HIGH, LOW]
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
 
     -
       obj_field: wind_code
       obj_content: L.DCE
       commodity: L
-      fields: [OPEN, CLOSE, HIGH, LOW]
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    - obj_field: wind_code
+      obj_content: RU.SHF
+      commodity: RU
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
 
     -
       obj_field: wind_code
       obj_content: MA.CZC
       commodity: MA
-      fields: [OPEN, CLOSE, HIGH, LOW]
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
 
     -
       obj_field: wind_code
       obj_content: RB.SHF
       commodity: RB
-      fields: [OPEN, CLOSE, HIGH, LOW]
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
 
     -
       obj_field: wind_code
       obj_content: J.DCE
       commodity: J
-      fields: [OPEN, CLOSE, HIGH, LOW]
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
 
     -
       obj_field: wind_code
       obj_content: JM.DCE
       commodity: JM
-      fields: [OPEN, CLOSE, HIGH, LOW]
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
 
     -
       obj_field: wind_code
       obj_content: HC.SHF
       commodity: HC
-      fields: [OPEN, CLOSE, HIGH, LOW]
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
 
     -
       obj_field: wind_code
       obj_content: BU.SHF
       commodity: BU
-      fields: [OPEN, CLOSE, HIGH, LOW]
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
 
     -
       obj_field: wind_code
       obj_content: ZC.CZC
       commodity: ZC
-      fields: [OPEN, CLOSE, HIGH, LOW]
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
 
     -
       obj_field: wind_code
       obj_content: I.DCE
       commodity: I
-      fields: [OPEN, CLOSE, HIGH, LOW]
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
 
     -
       obj_field: wind_code
       obj_content: PP.DCE
       commodity: PP
-      fields: [OPEN, CLOSE, HIGH, LOW]
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
 
     -
       obj_field: wind_code
       obj_content: V.DCE
       commodity: V
-      fields: [OPEN, CLOSE, HIGH, LOW]
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
 
     -
       obj_field: wind_code
       obj_content: EG.DCE
       commodity: EG
-      fields: [OPEN, CLOSE, HIGH, LOW]
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
 
   spot_price:
     -
@@ -138,6 +143,12 @@ data:
       obj_field: edb_name
       obj_content: "秦皇岛港:平仓价:动力末煤(Q5500):山西产"
       commodity: ZC
+      fields: [CLOSE]
+
+    - collection: SpotMD
+      obj_field: edb_name
+      obj_content: "市场价:天然橡胶:云南国营全乳胶(SCRWF):上海"
+      commodity: RU
       fields: [CLOSE]
 
 
@@ -216,6 +227,13 @@ data:
       obj_content: RB
       commodity: RB
       fields: [inventory]
+      frequency: weekly
+
+    - collection: Inventory
+      obj_field: edb_name
+      obj_content: "库存小计:天然橡胶:总计"
+      commodity: RU
+      fields: [CLOSE]
       frequency: weekly
 
     - collection: Inventory
@@ -318,6 +336,7 @@ trade_unit:
   BU: 10
   V: 5
   EG: 10
+  RU: 10
 
 margin_ratio:
   TA.CZC: 0.07
@@ -333,6 +352,7 @@ margin_ratio:
   BU.SHF: 0.07
   V.DCE: 0.07
   EG.DCE: 0.07
+  RU.SHF: 0.09
 
 
 
@@ -376,6 +396,9 @@ tcost_list:
   EG.DCE:
     mode: fixed
     value: 16
+  RU.SHF:
+    mode: percentage
+    value: 0.00045
 
 
 
