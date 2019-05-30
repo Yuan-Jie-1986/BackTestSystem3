@@ -863,7 +863,7 @@ class BacktestSys(object):
                             if mkdata[h]['specific_contract'] == 'nan':
                                 # 对于MA.CZC, ZC.CZC的品种，之前没有specific_contract字段，使用前一交易日的收盘价
                                 print('%s在%s的前一交易日没有specific_contract字段，使用前一交易日的收盘价换约平仓' % \
-                                      (mkdata[h], self.dt[i].strftime('%Y%m%d')))
+                                      (h, self.dt[i].strftime('%Y%m%d')))
                                 old_open = future_price[h].CLOSE[i - 1]
                                 old_open_exrate = getattr(self, self.exchange_func[future_price[h].unit_change]).CLOSE[i - 1]
                             elif table.find_one(queryArgs, projectionField):
