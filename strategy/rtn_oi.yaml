@@ -1,0 +1,270 @@
+
+host: localhost
+port: 27017
+db_name: CBNB
+user: yuanjie
+pwd: yuanjie
+
+start_date: '20130101'
+end_date: '20190422'
+capital: 1e6
+backtest_mode: OPEN  # 回测方式，CLOSE为以当天收盘价交易, OPEN为以第二天开盘价交易
+
+switch_contract: 1
+date_type: SHSE
+turnover: 1
+tcost: 0
+
+data:
+
+  future_price:
+
+    -
+      collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
+      obj_field: wind_code
+      obj_content: TA.CZC
+      commodity: TA
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: L.DCE
+      commodity: L
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    - obj_field: wind_code
+      obj_content: RU.SHF
+      commodity: RU
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: MA.CZC
+      commodity: MA
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: RB.SHF
+      commodity: RB
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: J.DCE
+      commodity: J
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: JM.DCE
+      commodity: JM
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: HC.SHF
+      commodity: HC
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: BU.SHF
+      commodity: BU
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: ZC.CZC
+      commodity: ZC
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: I.DCE
+      commodity: I
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: PP.DCE
+      commodity: PP
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: V.DCE
+      commodity: V
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: EG.DCE
+      commodity: EG
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+  future_index:
+    -
+      collection: DerivDB # 如果没有该字段，则默认为FuturesMD
+      obj_field: name
+      obj_content: TA888.CZC
+      commodity: TA
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: DerivDB
+      obj_field: name
+      obj_content: L888.DCE
+      commodity: L
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME, OI]
+
+    -
+      collection: DerivDB
+      obj_field: name
+      obj_content: RU888.SHF
+      commodity: RU
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: MA.CZC
+      commodity: MA
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: RB.SHF
+      commodity: RB
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: J.DCE
+      commodity: J
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: JM.DCE
+      commodity: JM
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: HC.SHF
+      commodity: HC
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: BU.SHF
+      commodity: BU
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: ZC.CZC
+      commodity: ZC
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: I.DCE
+      commodity: I
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: PP.DCE
+      commodity: PP
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: V.DCE
+      commodity: V
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+    -
+      obj_field: wind_code
+      obj_content: EG.DCE
+      commodity: EG
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+
+trade_unit:
+  TA: 5
+  PP: 5
+  L: 5
+  RB: 10
+  HC: 10
+  J: 100
+  JM: 60
+  I: 100
+  MA: 10
+  ZC: 100
+  BU: 10
+  V: 5
+  EG: 10
+  RU: 10
+
+margin_ratio:
+  TA.CZC: 0.07
+  PP.DCE: 0.07
+  L.DCE: 0.07
+  RB.SHF: 0.07
+  HC.SHF: 0.07
+  J.DCE: 0.07
+  JM.DCE: 0.07
+  I.DCE: 0.07
+  MA.CZC: 0.07
+  ZC.CZC: 0.07
+  BU.SHF: 0.07
+  V.DCE: 0.07
+  EG.DCE: 0.07
+  RU.SHF: 0.09
+
+
+
+tcost_list:
+  TA.CZC:
+    mode: fixed
+    value: 24
+  PP.DCE:
+    mode: percentage
+    value: 0.00024
+  L.DCE:
+    mode: fixed
+    value: 8
+  RB.SHF:
+    mode: percentage
+    value: 0.0004
+  HC.SHF:
+    mode: percentage
+    value: 0.0004
+  J.DCE:
+    mode: percentage
+    value: 0.00024
+  JM.DCE:
+    mode: percentage
+    value: 0.00024
+  I.DCE:
+    mode: percentage
+    value: 0.00048
+  MA.CZC:
+    mode: fixed
+    value: 16
+  ZC.CZC:
+    mode: fixed
+    value: 16
+  BU.SHF:
+    mode: percentage
+    value: 0.0004
+  V.DCE:
+    mode: fixed
+    value: 8
+  EG.DCE:
+    mode: fixed
+    value: 16
+  RU.SHF:
+    mode: percentage
+    value: 0.00045

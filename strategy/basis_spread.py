@@ -56,7 +56,7 @@ class BasisSpread(BacktestSys):
         low_df.index = self.dt
         vol_df.index = self.dt
 
-        rtn_df = fp_df.pct_change(periods=30)
+        rtn_df = fp_df.pct_change(periods=20)
         rtn1_df = fp_df.pct_change()
 
         def tsrank(x):
@@ -65,10 +65,17 @@ class BasisSpread(BacktestSys):
 
 
         # 库存变化率
+
+        # iv_df = iv_df.shift(periods=1)
+        iv_mean = iv_df.rolling(window=20).mean()
+        iv_std = iv_df.rolling(window=20).std()
+        # iv_change = (iv_df - iv_mean) / iv_std
         iv_change = iv_df.pct_change(periods=5)
 
         # close与volume的相关性
         corr_cls_vol = pd.DataFrame(fp_df).rolling(window=20, min_periods=15).corr(vol_df)
+        corr_cls_vol[corr_cls_vol < 0] = 0
+        corr_cls_vol = corr_cls_vol * rtn_df * 1e6
 
         # 现货价格向后移一位
         sp_df = sp_df.shift(periods=1)
@@ -91,32 +98,40 @@ class BasisSpread(BacktestSys):
         iv_rtn_rank = iv_rtn.rank(axis=1)
         iv_rtn_count = iv_rtn_rank.count(axis=1)
 
-        corr_rank = tsrank_rtn.rank(axis=1)
-        corr_count = tsrank_rtn.count(axis=1)
+        corr_rank = corr_cls_vol.rank(axis=1)
+        corr_count = corr_rank.count(axis=1)
+
+        tsrank_rtn_rank = tsrank_rtn.rank(axis=1)
+        tsrank_rtn_count = tsrank_rtn_rank.count(axis=1)
 
         # holdings_num = np.minimum(bs_iv_count // 2, 3)
         holdings_iv_num = np.minimum(iv_rank_count // 2, 3)
         holdings_bs_num = np.minimum(bs_rank_count // 2, 3)
         holdings_rtn_num = np.minimum(iv_rank_count // 2, 3)
         holdings_corr_num = np.minimum(corr_count // 2, 3)
+        holdings_tsrank_num = np.minimum(tsrank_rtn_count // 2, 3)
 
         holdings_iv_num[holdings_iv_num == 0] = np.nan
         holdings_bs_num[holdings_bs_num == 0] = np.nan
         holdings_rtn_num[holdings_rtn_num == 0] = np.nan
         holdings_corr_num[holdings_corr_num == 0] = np.nan
+        holdings_tsrank_num[holdings_tsrank_num == 0] = np.nan
         holdings_df = pd.DataFrame(0, index=self.dt, columns=bs_rank.columns)
 
         for c in holdings_df:
             # holdings_df[c][bs_iv_rank[c] > bs_iv_count - holdings_num] = 1
             # holdings_df[c][bs_iv_rank[c] <= holdings_num] = -1
+            # holdings_df[c][bs_rank[c] > bs_rank_count - holdings_bs_num] += 1
+            # holdings_df[c][bs_rank[c] <= holdings_bs_num] += -1
+            # holdings_df[c][rtn_rank[c] > rtn_rank_count - holdings_rtn_num] += 1
+            # holdings_df[c][rtn_rank[c] <= holdings_rtn_num] += -1
             holdings_df[c][iv_rank[c] > iv_rank_count - holdings_iv_num] += -1
             holdings_df[c][iv_rank[c] <= holdings_iv_num] += 1
-            holdings_df[c][bs_rank[c] > bs_rank_count - holdings_bs_num] += 1
-            holdings_df[c][bs_rank[c] <= holdings_bs_num] += -1
-            holdings_df[c][rtn_rank[c] > rtn_rank_count - holdings_rtn_num] += 1
-            holdings_df[c][rtn_rank[c] <= holdings_rtn_num] += -1
             # holdings_df[c][corr_rank[c] > corr_count - holdings_corr_num] += 1
             # holdings_df[c][corr_rank[c] <= holdings_corr_num] += -1
+            # holdings_df[c][tsrank_rtn_rank[c] > tsrank_rtn_count - holdings_tsrank_num] += 1
+            # holdings_df[c][tsrank_rtn_rank[c] <= holdings_tsrank_num] += -1
+
 
         holdings = HoldingClass(self.dt)
 
