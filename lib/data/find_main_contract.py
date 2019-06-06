@@ -1,4 +1,3 @@
-#coding=utf-8
 
 """
 该脚本是为了从wind的主力合约中寻找到具体是哪个合约，并
@@ -18,7 +17,7 @@ db.authenticate(name='yuanjie', password='yuanjie')
 futurs_coll = db['FuturesMD']
 
 for cmd in cmd_list:
-    print cmd
+    print(cmd)
     ptn_1 = re.compile('\w+(?=\.)')
     res_1 = ptn_1.search(cmd).group()
     ptn_2 = re.compile('(?<=\.)\w+')
@@ -57,7 +56,7 @@ for cmd in cmd_list:
         if res_update.matched_count == 0:
             continue
         if res_update.matched_count > 1:
-            print k, cmd
+            print(k, cmd)
             raise Exception(u'数据库中有重复')
 
 

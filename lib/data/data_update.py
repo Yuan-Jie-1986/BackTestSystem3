@@ -1,15 +1,13 @@
-#coding=utf-8
 
 import yaml
-from base import DataSaving
+from lib.data.base import DataSaving
 import requests
 
 # 切记：路透的数据更新需要等到九点之后，否则可能会更新到还没有停止交易的合约。
 # 对于国外的合约的数据，一定要检查合约的交易时间以及与北京时间的时差问题
 
-
-f = open('config.yaml')
-res = yaml.load(f)
+f = open('config.yaml', encoding='utf-8')
+res = yaml.load(f, Loader=yaml.FullLoader)
 host = res['host']
 port = res['port']
 usr = res['user']
@@ -25,7 +23,7 @@ error_list = []
 
 for col in cols:
     col_content = res[col]
-    print col_content
+    print(col_content)
     for cc in col_content:
         try:
             func = cc.pop('func')
@@ -35,11 +33,11 @@ for col in cols:
                     getattr(ds_obj, func)(col, c, **cc)
             else:
                 getattr(ds_obj, func)(col, cmd_list, **cc)
-        except requests.exceptions.MissingSchema, e:
-            print e.message
+        except requests.exceptions.MissingSchema as e:
+            print(e.message)
             error_list.append(e)
 
 f.close()
 
 for err in error_list:
-    print err.message
+    print(err.message)

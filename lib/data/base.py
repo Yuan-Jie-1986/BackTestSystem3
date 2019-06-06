@@ -301,6 +301,11 @@ class DataSaving(object):
             if not coll.find_one({'wind_code': v['wind_code']}):
                 v['update_time'] = datetime.now()
                 coll.insert_one(v)
+            elif coll.find_one({'wind_code': v['wind_code']})['last_trade_date'] != v['last_trade_date']:
+                # 有些品种的wind_code会变，比如TA005.CZC之前是1005的合约，现在变成了2005的合约，真特么SB
+                v['update_time'] = datetime.now()
+                coll.update({'wind_code': v['wind_code']}, v)
+
 
         return
 
@@ -361,7 +366,8 @@ class DataSaving(object):
                 if dt_l >= searchRes['last_trade_date']:
                     return
                 elif dt_l < searchRes['last_trade_date']:
-                    start_date = dt_l + timedelta(1)
+                    # 对于合约变化的SB品种，如"TA005.CZC"，需要选择更近的时间
+                    start_date = max(dt_l + timedelta(1), searchRes['contract_issue_date'])
                     if datetime.now().hour < 16 or alldaytrade:
                         end_date = min(datetime.today() - timedelta(1), searchRes['last_trade_date'])
                         # 这里需要注意为啥要增加一个比较，可参考CU0202合约，当时交易到2月8日，但是最后交易日是2月19日，由于春节放假导致的。
@@ -559,7 +565,9 @@ class DataSaving(object):
         """
         coll = self.db[collection]
         df = pd.read_csv(path, index_col=0, parse_dates=True)
-        print(df)
+        print(cmd)
+        df = df[[cmd]]
+        df.dropna(inplace=True)
         df = df.astype('float64')  # 将数据转成浮点型，否则存入数据库中会以NumberLong的数据类型
 
         # 可以进行更新
@@ -576,10 +584,10 @@ class DataSaving(object):
         start_date = df.index[0]
 
         unit_total = len(df.values.flatten())
-        self.logger.info(u'抓取%s%s之后的数据，共计%d个' % (cmd, start_date, unit_total))
+        self.logger.info('抓取%s%s之后的数据，共计%d个' % (cmd, start_date, unit_total))
 
         # 关于编码的问题，如果是中文，需要将unicode转成str
-        df.rename(columns={cmd.encode('utf-8'): field}, inplace=True)
+        df.rename(columns={cmd: field}, inplace=True)
 
         df['commodity'] = cmd
         for k, v in kwargs.items():
@@ -588,10 +596,10 @@ class DataSaving(object):
         res_dict = df.to_dict(orient='index')
         total = len(res_dict)
         count = 1
-        print(u'抓取%s数据' % cmd)
+        print('抓取%s数据' % cmd)
         for di in res_dict:
             process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+            sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
             sys.stdout.flush()
 
             exist_res = coll.find({'commodity': cmd, 'date': di}, ['date', field])
@@ -600,13 +608,13 @@ class DataSaving(object):
                 dtemp = res_dict[di].copy()
                 dtemp['date'] = di
                 dtemp['update_time'] = datetime.now()
-                # coll.insert_one(dtemp)
+                coll.insert_one(dtemp)
             elif field not in exist_res[0] or exist_res[0][field] != res_dict[di][field]:
-                # coll.delete_many({'commodity': cmd, 'date': di})
+                coll.delete_many({'commodity': cmd, 'date': di})
                 dtemp = res_dict[di].copy()
                 dtemp['date'] = di
                 dtemp['update_time'] = datetime.now()
-                # coll.insert_one(dtemp)
+                coll.insert_one(dtemp)
             else:
                 count += 1
                 continue
