@@ -33,8 +33,11 @@ class DataSaving(object):
 
     @staticmethod
     def rtConn():
-        TR_ID = '70650e2c881040408f6f95dea2bf3fa13e9f66fe'
-        ek.set_app_key(TR_ID)
+        try:
+            TR_ID = '70650e2c881040408f6f95dea2bf3fa13e9f66fe'
+            ek.set_app_key(TR_ID)
+        except ek.eikonError.EikonError as e:
+            print(e)
         return None
 
     @staticmethod

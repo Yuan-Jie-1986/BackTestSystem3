@@ -14,12 +14,12 @@ collection:
 #  - Information
 #  - FuturesMinMD
   - FuturesMD
-#  - SpotMD
+  - SpotMD
 #  - EDB
 #  - ICEPrice
 #  - DateDB
 #  - DerivDB
-#  - Inventory
+  - Inventory
 #  - FuturesOIR
 
 
@@ -51,63 +51,63 @@ FuturesMinMD:
 
 
 FuturesMD:
-  -
-    source: WIND
-    frequency: daily
-    func: getFutureGroupPriceFromWind
-    alldaytrade: 0
-    cmd:
-      - L.DCE
-      - PP.DCE
-      - I.DCE
-      - J.DCE
-      - JM.DCE
-      - M.DCE
-      - C.DCE
-      - RB.SHF
-      - BU.SHF
-      - RU.SHF
-      - NI.SHF
-      - HC.SHF
-      - TA.CZC
-      - MA.CZC
-      - AP.CZC
-      - ZC.CZC
-      - SR.CZC
-      - RM.CZC
-      - SC.INE
-      - EG.DCE
-      - SP.SHF
-      - FG.CZC
-      - V.DCE
-      - CU.SHF
-      - AL.SHF
-      - AG.SHF
-      - FU.SHF
-      - IF.CFE
-      - IC.CFE
-      - IH.CFE
-
-  -
-    source: WIND
-    frequency: daily
-    func: getFutureGroupPriceFromWind
-    alldaytrade: 1
-    cmd: [B.IPE, LB.CME, NG.NYM]
-
 #  -
-#    source: ThomsonReuters
-#    func: getPriceFromRT
+#    source: WIND
 #    frequency: daily
-#    type: futures
-#    cmd: [LCOc1, LCOc2, CLc1, CLc2, RBc1, RBc2, HOc1, HOc2, LGOc1, LGOc2, NGc1, NGc2]
+#    func: getFutureGroupPriceFromWind
+#    alldaytrade: 0
+#    cmd:
+#      - L.DCE
+#      - PP.DCE
+#      - I.DCE
+#      - J.DCE
+#      - JM.DCE
+#      - M.DCE
+#      - C.DCE
+#      - RB.SHF
+#      - BU.SHF
+#      - RU.SHF
+#      - NI.SHF
+#      - HC.SHF
+#      - TA.CZC
+#      - MA.CZC
+#      - AP.CZC
+#      - ZC.CZC
+#      - SR.CZC
+#      - RM.CZC
+#      - SC.INE
+#      - EG.DCE
+#      - SP.SHF
+#      - FG.CZC
+#      - V.DCE
+#      - CU.SHF
+#      - AL.SHF
+#      - AG.SHF
+#      - FU.SHF
+#      - IF.CFE
+#      - IC.CFE
+#      - IH.CFE
 #
-#  - source: ThomsonReuters
-#    func: getPriceFromRT
+#  -
+#    source: WIND
 #    frequency: daily
-#    type: swap
-#    cmd: [FO380SGSWMc1, FO180SGSWMc1, EBOBNWEMc1, EBOBNWEMc2, NACFRJPSWMc1, NACFRJPSWMc2, GO10SGSWMc1, GO10SGSWMc2,
-#    MOG92SGMc1, MOG92SGMc2]
+#    func: getFutureGroupPriceFromWind
+#    alldaytrade: 1
+#    cmd: [B.IPE, LB.CME, NG.NYM]
+
+  -
+    source: ThomsonReuters
+    func: getPriceFromRT
+    frequency: daily
+    type: futures
+    cmd: [LCOc1, LCOc2, CLc1, CLc2, RBc1, RBc2, HOc1, HOc2, LGOc1, LGOc2, NGc1, NGc2]
+
+  - source: ThomsonReuters
+    func: getPriceFromRT
+    frequency: daily
+    type: swap
+    cmd: [FO380SGSWMc1, FO180SGSWMc1, EBOBNWEMc1, EBOBNWEMc2, NACFRJPSWMc1, NACFRJPSWMc2, GO10SGSWMc1, GO10SGSWMc2,
+    MOG92SGMc1, MOG92SGMc2]
 
 SpotMD:
 
@@ -168,21 +168,21 @@ SpotMD:
 #    edb_name: "市场价:天然橡胶:云南国营全乳胶(SCRWF):上海"
 
 
-#  -
-#    source: ThomsonReuters
-#    func: getPriceFromRT
-#    frequency: daily
-#    unit: 美元/桶
-#    type: spot
-#    cmd: [WTM-, WTC-, DUB-1M]
-#
-#  -
-#    source: ThomsonReuters
-#    func: getPriceFromRT
-#    frequency: daily
-#    unit: 美元/吨
-#    type: spot
-#    cmd: [FO380-SIN]
+  -
+    source: ThomsonReuters
+    func: getPriceFromRT
+    frequency: daily
+    unit: 美元/桶
+    type: spot
+    cmd: [WTM-, WTC-, DUB-1M, NAF-SIN]
+
+  -
+    source: ThomsonReuters
+    func: getPriceFromRT
+    frequency: daily
+    unit: 美元/吨
+    type: spot
+    cmd: [FO380-SIN]
 
 #  -
 #    source: ManualInput
@@ -191,7 +191,7 @@ SpotMD:
 #    cmd: LL神华煤化工价格
 #    unit: 元/吨
 #    field: price
-#    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\LL.csv"
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\LL.csv"
 #
 #  -
 #    source: ManualInput
@@ -200,7 +200,7 @@ SpotMD:
 #    cmd: 甲醇华东（江苏地区）
 #    unit: 元/吨
 #    field: price
-#    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\MA.csv"
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\MA.csv"
 #
 #  -
 #    source: ManualInput
@@ -209,7 +209,7 @@ SpotMD:
 #    cmd: PP华东现货价
 #    unit: 元/吨
 #    field: price
-#    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\PP.csv"
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\PP.csv"
 #
 #  -
 #    source: ManualInput
@@ -218,8 +218,8 @@ SpotMD:
 #    cmd: TA内盘人民币价
 #    unit: 元/吨
 #    field: price
-#    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\PTA.csv"
-#
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\PTA.csv"
+
 #  -
 #    source: ManualInput
 #    func: getDataFromCSV
@@ -227,7 +227,7 @@ SpotMD:
 #    cmd: 现货（常州sg-5低端价）
 #    unit: 元/吨
 #    field: price
-#    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\PVC.csv"
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\PVC.csv"
 #
 #  -
 #    source: ManualInput
@@ -236,7 +236,7 @@ SpotMD:
 #    cmd: 国产重交-山东
 #    unit: 元/吨
 #    field: price
-#    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\沥青.csv"
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\沥青.csv"
 #
 #
 #  - source: ManualInput
@@ -246,25 +246,16 @@ SpotMD:
 #    area: 华东主港
 #    unit: 元/吨
 #    field: price
-#    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\MEG.csv"
-
-  - source: ManualInput
-    func: getDataFromCSV
-    frequency: daily
-    cmd: PX
-    area: CFR中国
-    unit: 美元/吨
-    field: price
-    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\PX.csv"
-
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\MEG.csv"
+#
 #  - source: ManualInput
 #    func: getDataFromCSV
 #    frequency: daily
-#    cmd: BZ
-#    area: FOB韩国
+#    cmd: PX
+#    area: CFR中国
 #    unit: 美元/吨
 #    field: price
-#    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\supplement_db\\BZ.csv"
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\PX.csv"
 
 EDB:
   - {func: getEDBFromWind, source: WIND, cmd: M0067855, edb_name: "即期汇率:美元兑人民币", unit: null, frequency: Daily}
@@ -450,7 +441,7 @@ Inventory:
 #    unit: 吨
 #    cmd: S0049508
 #    edb_name: "库存小计:天然橡胶:总计"
-
+#
 #  -
 #    source: ManualInput
 #    func: getDataFromCSV
@@ -459,7 +450,7 @@ Inventory:
 #    area: 全国33个城市
 #    unit: 万吨
 #    field: inventory
-#    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\inventory_db\\HC.csv"
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\HC.csv"
 #
 #  -
 #    source: ManualInput
@@ -469,7 +460,7 @@ Inventory:
 #    area: LL社会库存
 #    unit: 万吨
 #    field: inventory
-#    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\inventory_db\\LL.csv"
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\LL.csv"
 #
 #  -
 #    source: ManualInput
@@ -479,7 +470,7 @@ Inventory:
 #    area: "江苏+宁波+广东+福建"
 #    unit: 万吨
 #    field: inventory
-#    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\inventory_db\\MA.csv"
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\MA.csv"
 #
 #  -
 #    source: ManualInput
@@ -489,7 +480,7 @@ Inventory:
 #    area: MEG港口库存
 #    unit: 万吨
 #    field: inventory
-#    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\inventory_db\\MEG.csv"
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\MEG.csv"
 #
 #  -
 #    source: ManualInput
@@ -499,8 +490,8 @@ Inventory:
 #    area: PP社会库存
 #    unit: 万吨
 #    field: inventory
-#    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\inventory_db\\PP.csv"
-
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\PP.csv"
+#
 #  -
 #    source: ManualInput
 #    func: getDataFromCSV
@@ -509,8 +500,8 @@ Inventory:
 #    area: "PTA总库存（忠朴）"
 #    unit: 万吨
 #    field: inventory
-#    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\inventory_db\\PTA.csv"
-
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\PTA.csv"
+#
 #  -
 #    source: ManualInput
 #    func: getDataFromCSV
@@ -519,8 +510,8 @@ Inventory:
 #    area: 35城市
 #    unit: 万吨
 #    field: inventory
-#    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\inventory_db\\RB.csv"
-
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\RB.csv"
+#
 #  -
 #    source: ManualInput
 #    func: getDataFromCSV
@@ -529,7 +520,7 @@ Inventory:
 #    area: 山东炼厂库存率
 #    unit: "%"
 #    field: inventory
-#    path: "E:\\CBNB\\BackTestSystem\\lib\\data\\inventory_db\\BU.csv"
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\BU.csv"
 
   -
     source: ThomsonReuters

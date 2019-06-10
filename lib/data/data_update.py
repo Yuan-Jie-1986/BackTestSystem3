@@ -34,10 +34,10 @@ for col in cols:
             else:
                 getattr(ds_obj, func)(col, cmd_list, **cc)
         except requests.exceptions.MissingSchema as e:
-            print(e.message)
+            print(e)
             error_list.append(e)
 
 f.close()
 
 for err in error_list:
-    print(err.message)
+    print(err)
