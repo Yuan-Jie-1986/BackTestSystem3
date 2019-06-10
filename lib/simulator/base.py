@@ -487,6 +487,8 @@ class BacktestSys(object):
                 self.data[sub_class][d['obj_content']] = DataClass(nm=d['obj_content'])
                 table = self.db[d['collection']] if 'collection' in d else self.db['FuturesMD']
                 query_arg = {d['obj_field']: d['obj_content'], 'date': {'$gte': self.start_dt, '$lte': self.end_dt}}
+                if 'add_query' in d:
+                    query_arg.update(d['add_query'])
                 projection_fields = ['date'] + d['fields']
                 if self.switch_contract:
                     projection_fields = projection_fields + ['switch_contract', 'specific_contract']
@@ -582,7 +584,14 @@ class BacktestSys(object):
     def strategy(self):
         raise NotImplementedError
 
+    # 检查持仓的品种是否有行情数据
+    def holdingsCheck(self, holdingsObj):
+        return (np.in1d(holdingsObj.asset, list(self.data['future_price'].keys()))).all()
+
     def holdingsProcess(self, holdingsObj):
+        """根据配置文件对持仓进行最后的处理"""
+        if not self.holdingsCheck(holdingsObj):
+            raise Exception('持仓品种没有行情数据，请检查字段是否正确')
         # 对生成的持仓进行处理，需要注意的是这个函数要最后再用
         # 如果在配置文件中的持仓周期大于1，需要对持仓进行调整。通常该参数是针对alpha策略。
         if self.turnover > 1:
@@ -601,7 +610,9 @@ class BacktestSys(object):
             if 'OPEN' in self.data['future_price'][h].__dict__:
                 h_opn = self.data['future_price'][h].OPEN
             for i in range(1, len(self.dt)):
+                # 如果之前合约没有上市，将之前的持仓全部赋为0
                 if np.isnan(h_cls[:i+1]).all():
+                    h_holdings[i] = 0
                     continue
                 if (np.isnan(h_cls[i]) or ('OPEN' in self.data['future_price'][h].__dict__ and np.isnan(h_opn[i]))) and \
                     h_holdings[i] != h_holdings[i-1]:
@@ -620,6 +631,9 @@ class BacktestSys(object):
         mode=2: 不加杠杆。所有持仓品种按照其波动率进行调整，按照相对的波动来对持仓进行分配。
         mode=3: 不加杠杆。所有持仓品种按照ATR进行调整，按照ATR来对持仓进行分配。计算ATR时需要最高价最低价
         """
+        if not self.holdingsCheck(holdingsObj):
+            raise Exception('持仓品种没有行情数据，请检查字段是否正确')
+
         # 合约持仓的dataframe
         holdings_df = holdingsObj.to_frame()
 
