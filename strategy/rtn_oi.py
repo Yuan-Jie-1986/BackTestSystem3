@@ -13,87 +13,89 @@ class BasisSpread(BacktestSys):
     def strategy(self):
 
         future_price = self.data['future_price']
-        spot_price = self.data['spot_price']
-        profit_rate = self.data['profit_rate']
-        inventory = self.data['inventory']
-        df_profit = pd.DataFrame(index=self.dt)
-        for k, v in profit_rate.items():
-            df_profit[k] = v.upper_profit_rate
-        df_profit.fillna(method='ffill', inplace=True)
-        profit_mean = df_profit.rolling(window=20).mean()
-        profit_std = df_profit.rolling(window=20).std()
-        df_profit = (df_profit - profit_mean) / profit_std
-        # df_profit = df_profit.rolling(window=60, min_periods=50).mean()
-        # profit_chg = df_profit.pct_change(periods=20)
+        future_index = self.data['future_index']
 
-        iv_df = pd.DataFrame(index=self.dt)
-        sp_df = pd.DataFrame(index=self.dt)
-        fp_df = pd.DataFrame(index=self.dt)
+        # spot_price = self.data['spot_price']
+        # profit_rate = self.data['profit_rate']
+        # inventory = self.data['inventory']
+        # df_profit = pd.DataFrame(index=self.dt)
+        # for k, v in profit_rate.items():
+        #     df_profit[k] = v.upper_profit_rate
+        # df_profit.fillna(method='ffill', inplace=True)
+        # profit_mean = df_profit.rolling(window=20).mean()
+        # profit_std = df_profit.rolling(window=20).std()
+        # df_profit = (df_profit - profit_mean) / profit_std
+        # # df_profit = df_profit.rolling(window=60, min_periods=50).mean()
+        # # profit_chg = df_profit.pct_change(periods=20)
+        #
+        # iv_df = pd.DataFrame(index=self.dt)
+        # sp_df = pd.DataFrame(index=self.dt)
+        # fp_df = pd.DataFrame(index=self.dt)
+        #
+        # for k, v in inventory.items():
+        #     if 'inventory' in v.__dict__ and v.commodity not in iv_df:
+        #         iv_df[v.commodity] = v.inventory
+        #     elif 'inventory' in v.__dict__ and v.commodity in iv_df:
+        #         iv_df[v.commodity] += v.inventory
+        #     elif 'CLOSE' in v.__dict__ and v.commodity not in iv_df:
+        #         iv_df[v.commodity] = v.CLOSE
+        #     elif 'CLOSE' in v.__dict__ and v.commodity in iv_df:
+        #         iv_df[v.commodity] += v.CLOSE
+        #
+        # for k, v in spot_price.items():
+        #     if 'price' in v.__dict__:
+        #         sp_df[v.commodity] = v.price
+        #     elif 'CLOSE' in v.__dict__:
+        #         sp_df[v.commodity] = v.CLOSE
+        #
+        # for k, v in future_price.items():
+        #     fp_df[v.commodity] = v.CLOSE
+        #
+        #
+        # profit_rank = df_profit.rank(axis=1)
+        # profit_count = profit_rank.count(axis=1)
+        #
+        # holdings_profit_num = np.minimum(profit_count // 2, 3)
+        # holdings_profit_num[holdings_profit_num == 0] = np.nan
+        #
+        # # 库存变化率
+        # iv_df = iv_df.shift(periods=1)
+        # iv_mean = iv_df.rolling(window=20).mean()
+        # iv_std = iv_df.rolling(window=20).std()
+        # iv_change = (iv_df - iv_mean) / iv_std
+        #
+        # # iv_change = iv_df.pct_change(periods=5)
+        # iv_rank = iv_change.rank(axis=1)
+        # iv_rank_count = iv_rank.count(axis=1)
+        #
+        # holdings_iv_num = np.minimum(iv_rank_count // 2, 3)
+        # holdings_iv_num[holdings_iv_num == 0] = np.nan
+        #
+        # sp_df = sp_df.shift(periods=1)
+        # bs_df = 1. - fp_df[sp_df.columns] / sp_df
+        # # bs_df = sp_df - fp_df[sp_df.columns]
+        # # bs_mean = bs_df.rolling(window=250, min_periods=200).mean()
+        # # bs_std = bs_df.rolling(window=250, min_periods=200).std()
+        # # bs_df = (bs_df - bs_mean) / bs_std
+        #
+        # bs_rank = bs_df.rank(axis=1)
+        # bs_rank_count = bs_rank.count(axis=1)
+        #
+        # holdings_bs_num = np.minimum(bs_rank_count // 2, 3)
+        # holdings_bs_num[holdings_bs_num == 0] = np.nan
 
-        for k, v in inventory.items():
-            if 'inventory' in v.__dict__ and v.commodity not in iv_df:
-                iv_df[v.commodity] = v.inventory
-            elif 'inventory' in v.__dict__ and v.commodity in iv_df:
-                iv_df[v.commodity] += v.inventory
-            elif 'CLOSE' in v.__dict__ and v.commodity not in iv_df:
-                iv_df[v.commodity] = v.CLOSE
-            elif 'CLOSE' in v.__dict__ and v.commodity in iv_df:
-                iv_df[v.commodity] += v.CLOSE
-
-        for k, v in spot_price.items():
-            if 'price' in v.__dict__:
-                sp_df[v.commodity] = v.price
-            elif 'CLOSE' in v.__dict__:
-                sp_df[v.commodity] = v.CLOSE
-
-        for k, v in future_price.items():
-            fp_df[v.commodity] = v.CLOSE
-
-
-        profit_rank = df_profit.rank(axis=1)
-        profit_count = profit_rank.count(axis=1)
-
-        holdings_profit_num = np.minimum(profit_count // 2, 3)
-        holdings_profit_num[holdings_profit_num == 0] = np.nan
-
-        # 库存变化率
-        iv_df = iv_df.shift(periods=1)
-        iv_mean = iv_df.rolling(window=20).mean()
-        iv_std = iv_df.rolling(window=20).std()
-        iv_change = (iv_df - iv_mean) / iv_std
-
-        # iv_change = iv_df.pct_change(periods=5)
-        iv_rank = iv_change.rank(axis=1)
-        iv_rank_count = iv_rank.count(axis=1)
-
-        holdings_iv_num = np.minimum(iv_rank_count // 2, 3)
-        holdings_iv_num[holdings_iv_num == 0] = np.nan
-
-        sp_df = sp_df.shift(periods=1)
-        bs_df = 1. - fp_df[sp_df.columns] / sp_df
-        # bs_df = sp_df - fp_df[sp_df.columns]
-        # bs_mean = bs_df.rolling(window=250, min_periods=200).mean()
-        # bs_std = bs_df.rolling(window=250, min_periods=200).std()
-        # bs_df = (bs_df - bs_mean) / bs_std
-
-        bs_rank = bs_df.rank(axis=1)
-        bs_rank_count = bs_rank.count(axis=1)
-
-        holdings_bs_num = np.minimum(bs_rank_count // 2, 3)
-        holdings_bs_num[holdings_bs_num == 0] = np.nan
-
-        holdings_df = pd.DataFrame(0, index=self.dt, columns=profit_rank.columns)
-        for c in holdings_df:
-            holdings_df[c][profit_rank[c] > profit_count - holdings_profit_num] += -1
-            holdings_df[c][profit_rank[c] <= holdings_profit_num] += 1
-
-            for k, v in future_price.items():
-                if k == c:
-                    holdings_df[c][iv_rank[v.commodity] > iv_rank_count - holdings_iv_num] += -1
-                    holdings_df[c][iv_rank[v.commodity] <= holdings_iv_num] += 1
-
-                    holdings_df[c][bs_rank[v.commodity] > bs_rank_count - holdings_bs_num] += 1
-                    holdings_df[c][bs_rank[v.commodity] <= holdings_bs_num] += -1
+        # holdings_df = pd.DataFrame(0, index=self.dt, columns=profit_rank.columns)
+        # for c in holdings_df:
+        #     holdings_df[c][profit_rank[c] > profit_count - holdings_profit_num] += -1
+        #     holdings_df[c][profit_rank[c] <= holdings_profit_num] += 1
+        #
+        #     for k, v in future_price.items():
+        #         if k == c:
+        #             holdings_df[c][iv_rank[v.commodity] > iv_rank_count - holdings_iv_num] += -1
+        #             holdings_df[c][iv_rank[v.commodity] <= holdings_iv_num] += 1
+        #
+        #             holdings_df[c][bs_rank[v.commodity] > bs_rank_count - holdings_bs_num] += 1
+        #             holdings_df[c][bs_rank[v.commodity] <= holdings_bs_num] += -1
 
         # for k, v in future_price.items():
         #     fp_df[v.commodity] = v.CLOSE
@@ -197,10 +199,66 @@ class BasisSpread(BacktestSys):
         #     # holdings_df[c][tsrank_rtn_rank[c] > tsrank_rtn_count - holdings_tsrank_num] += 1
         #     # holdings_df[c][tsrank_rtn_rank[c] <= holdings_tsrank_num] += -1
 
-        holdings = HoldingClass(self.dt)
+        fp_df = pd.DataFrame(index=self.dt)
+        for k, v in future_price.items():
+            fp_df[v.commodity] = v.CLOSE
+        rtn20_df = fp_df.pct_change(periods=20)
+
+
+        index_oi_df = pd.DataFrame(index=self.dt)
+        vol_df = pd.DataFrame(index=self.dt)
+        for k, v in future_index.items():
+            index_oi_df[v.commodity] = v.OI
+            vol_df[v.commodity] = v.VOLUME
+        oi_mean = index_oi_df.rolling(window=20, min_periods=15).mean()
+        oi_std = index_oi_df.rolling(window=20, min_periods=15).std()
+        oi_standard = (index_oi_df - oi_mean) / oi_std
+
+        oi_short_mean = index_oi_df.rolling(window=10, min_periods=5).mean()
+        oi_long_mean = index_oi_df.rolling(window=20, min_periods=15).mean()
+        oi_chg = oi_long_mean / oi_short_mean
+
+        vol_mean = vol_df.rolling(window=20, min_periods=15).mean()
+        vol_std = vol_df.rolling(window=20, min_periods=15).std()
+        vol_standard = (vol_df - vol_mean) / vol_std
+
+        vol_short_mean = vol_df.rolling(window=10, min_periods=5).mean()
+        vol_long_mean = vol_df.rolling(window=20, min_periods=15).mean()
+        vol_chg = vol_long_mean / vol_short_mean
+
+        tjd = vol_df / index_oi_df
+        tjd_short_mean = tjd.rolling(window=10, min_periods=5).mean()
+        tjd_long__mean = tjd.rolling(window=20, min_periods=15).mean()
+        tjd_chg = tjd_short_mean / tjd_long__mean
+
+
+
+        rtn20_df = rtn20_df * tjd_chg
+
+        rtn20_rank = rtn20_df.rank(axis=1)
+        rtn20_count = rtn20_rank.count(axis=1)
+        holdings_rtn_num = np.minimum(rtn20_count // 2, 3)
+        holdings_rtn_num[holdings_rtn_num == 0] = np.nan
+
+        oi_rank = oi_standard.rank(axis=1)
+        oi_count = oi_rank.count(axis=1)
+        holdings_oi_num = np.minimum(oi_count // 2, 3)
+        holdings_oi_num[holdings_oi_num == 0] = np.nan
+
+
+        holdings_df = pd.DataFrame(0, index=self.dt, columns=fp_df.columns)
 
         for c in holdings_df:
-            holdings.add_holdings(c, holdings_df[c].values.flatten())
+            holdings_df[c][rtn20_rank[c] > rtn20_count - holdings_rtn_num] += 1
+            holdings_df[c][rtn20_rank[c] < holdings_rtn_num] += -1
+            # holdings_df[c][oi_rank[c] > oi_count - holdings_oi_num] += -1
+            # holdings_df[c][oi_rank[c] < holdings_oi_num] += 1
+
+        holdings = HoldingClass(self.dt)
+        for c in holdings_df:
+            for fp in future_price:
+                if future_price[fp].commodity == c:
+                    holdings.add_holdings(fp, holdings_df[c].values.flatten())
 
         return holdings
 
