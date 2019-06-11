@@ -40,6 +40,15 @@ data:
       obj_content: "TA内盘人民币价"
       commodity: TA
       fields: [price]
+
+  profit_rate:
+  - collection: ProfitRate
+    obj_field: commodity
+    obj_content: L.DCE
+    add_query:  # 对于提取数据的一些其余的条件。比如取method为future
+      method: future
+    commodity: L
+    fields: [upper_profit_rate]
 #  -
 #    obj_field: wind_code
 #    obj_content: PP.DCE
