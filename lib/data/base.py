@@ -115,10 +115,6 @@ class DataSaving(object):
         sys.stdout.write('\n')
         sys.stdout.flush()
 
-
-
-
-
     def getFuturesOIRFromWind(self, collection, cmd, **kwargs):
         self.windConn()
         coll = self.db[collection]
@@ -283,11 +279,23 @@ class DataSaving(object):
         # for d in df2dict:
         #     print df2dict[d]
 
-
     def getFuturesInfoFromWind(self, collection, cmd, **kwargs):
+        # 主要用于抓取wind里各合约的信息
         self.windConn()
         coll = self.db[collection]
-        wres = w.wset(tablename='futurecc', startdate='1990-01-01', enddate=datetime.today(), wind_code=cmd)
+        ptn_1 = re.compile('\w+(?=\.)')
+        res_1 = ptn_1.search(cmd).group()
+        ptn_2 = re.compile('(?<=\.)\w+')
+        res_2 = ptn_2.search(cmd).group()
+        queryArgs = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (res_1, res_2)}}
+        dt_res = list(coll.find(queryArgs, ['contract_issue_date']).sort('contract_issue_date', pymongo.DESCENDING).limit(1))
+        if dt_res:
+            dt_last = dt_res[0]['contract_issue_date']
+            dt_start = dt_last - timedelta(1)
+        else:
+            dt_start = datetime(1990, 1, 1)
+        wres = w.wset(tablename='futurecc', startdate=dt_start.strftime('%Y-%m-%d'),
+                      enddate=datetime.today().strftime('%Y-%m-%d'), wind_code=cmd)
         wfields = wres.Fields
         unit_total = len(wfields) * len(wres.Data[0])
         self.logger.info(u'共抓取了关于%s品种%d个单元格数据' % (cmd, unit_total))
@@ -308,8 +316,6 @@ class DataSaving(object):
                 # 有些品种的wind_code会变，比如TA005.CZC之前是1005的合约，现在变成了2005的合约，真特么SB
                 v['update_time'] = datetime.now()
                 coll.update({'wind_code': v['wind_code']}, v)
-
-
         return
 
     def getFuturePriceFromWind(self, collection, contract, alldaytrade, update=1, **kwargs):
@@ -529,7 +535,12 @@ class DataSaving(object):
         elif type == 'swap' or type == 'spot':
             fields = ['CLOSE']
 
-        res = ek.get_timeseries(cmd, start_date=start_date, end_date=end_date, fields=fields)
+        try:
+            res = ek.get_timeseries(cmd, start_date=start_date, end_date=end_date, fields=fields)
+        except ek.eikonError.EikonError as e:
+            print('更新路透%s数据出现错误' % cmd)
+            print(e)
+            return
 
         if 'COUNT' in res.columns:
             self.logger.info(u'抓取%s%s到%s数据失败，行情交易未结束，请稍后重试' % (cmd, start_date, end_date))
@@ -790,6 +801,7 @@ class DataSaving(object):
 
         sys.stdout.write('\n')
         sys.stdout.flush()
+
 
 
 if __name__ == '__main__':

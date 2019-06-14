@@ -11,14 +11,14 @@ pwd: yuanjie
 log_path: "E:\\CBNB\\BackTestSystem\\data_saving.log"
 
 collection:
-#  - Information
+  - Information
 #  - FuturesMinMD
   - FuturesMD
   - SpotMD
-#  - EDB
+  - EDB
 #  - ICEPrice
 #  - DateDB
-#  - DerivDB
+  - DerivDB
   - Inventory
 #  - FuturesOIR
 
@@ -51,49 +51,49 @@ FuturesMinMD:
 
 
 FuturesMD:
-#  -
-#    source: WIND
-#    frequency: daily
-#    func: getFutureGroupPriceFromWind
-#    alldaytrade: 0
-#    cmd:
-#      - L.DCE
-#      - PP.DCE
-#      - I.DCE
-#      - J.DCE
-#      - JM.DCE
-#      - M.DCE
-#      - C.DCE
-#      - RB.SHF
-#      - BU.SHF
-#      - RU.SHF
-#      - NI.SHF
-#      - HC.SHF
-#      - TA.CZC
-#      - MA.CZC
-#      - AP.CZC
-#      - ZC.CZC
-#      - SR.CZC
-#      - RM.CZC
-#      - SC.INE
-#      - EG.DCE
-#      - SP.SHF
-#      - FG.CZC
-#      - V.DCE
-#      - CU.SHF
-#      - AL.SHF
-#      - AG.SHF
-#      - FU.SHF
-#      - IF.CFE
-#      - IC.CFE
-#      - IH.CFE
-#
-#  -
-#    source: WIND
-#    frequency: daily
-#    func: getFutureGroupPriceFromWind
-#    alldaytrade: 1
-#    cmd: [B.IPE, LB.CME, NG.NYM]
+  -
+    source: WIND
+    frequency: daily
+    func: getFutureGroupPriceFromWind
+    alldaytrade: 0
+    cmd:
+      - L.DCE
+      - PP.DCE
+      - I.DCE
+      - J.DCE
+      - JM.DCE
+      - M.DCE
+      - C.DCE
+      - RB.SHF
+      - BU.SHF
+      - RU.SHF
+      - NI.SHF
+      - HC.SHF
+      - TA.CZC
+      - MA.CZC
+      - AP.CZC
+      - ZC.CZC
+      - SR.CZC
+      - RM.CZC
+      - SC.INE
+      - EG.DCE
+      - SP.SHF
+      - FG.CZC
+      - V.DCE
+      - CU.SHF
+      - AL.SHF
+      - AG.SHF
+      - FU.SHF
+      - IF.CFE
+      - IC.CFE
+      - IH.CFE
+
+  -
+    source: WIND
+    frequency: daily
+    func: getFutureGroupPriceFromWind
+    alldaytrade: 1
+    cmd: [B.IPE, LB.CME, NG.NYM]
 
   -
     source: ThomsonReuters
@@ -111,61 +111,61 @@ FuturesMD:
 
 SpotMD:
 
-#  -
-#    source: WIND
-#    func: getEDBFromWind
-#    frequency: daily
-#    unit: 元/吨
-#    cmd: S0033227
-#    edb_name: "价格:螺纹钢:HRB400 20mm:上海"
-#
-#  -
-#    source: WIND
-#    func: getEDBFromWind
-#    frequency: daily
-#    unit: 元/吨
-#    cmd: S5704863
-#    edb_name: "价格:热轧板卷:Q235B:4.75mm:杭州"
-#
-#  -
-#    source: WIND
-#    func: getEDBFromWind
-#    frequency: daily
-#    unit: 元/吨
-#    cmd: S5118197
-#    edb_name: "天津港:平仓价(含税):一级冶金焦(A<12.5%,<0.65%S,CSR>65%,Mt8%):山西产"
-#
-#  -
-#    source: WIND
-#    func: getEDBFromWind
-#    frequency: daily
-#    unit: 元/湿吨
-#    cmd: S0174655
-#    edb_name: "车板价:青岛港:澳大利亚:PB粉矿:61.5%"
-#
-#  -
-#    source: WIND
-#    func: getEDBFromWind
-#    frequency: daily
-#    unit: 元/吨
-#    cmd: S5112223
-#    edb_name: "天津港:库提价(含税):主焦煤(A<8%,V28%,0.8%S,G95,Y20mm):澳大利亚产"
-#
-#  -
-#    source: WIND
-#    func: getEDBFromWind
-#    frequency: daily
-#    unit: 元/吨
-#    cmd: S5101377
-#    edb_name: "秦皇岛港:平仓价:动力末煤(Q5500):山西产"
-#
-#  -
-#    source: WIND
-#    func: getEDBFromWind
-#    frequency: daily
-#    unit: 元/吨
-#    cmd: S5016816
-#    edb_name: "市场价:天然橡胶:云南国营全乳胶(SCRWF):上海"
+  -
+    source: WIND
+    func: getEDBFromWind
+    frequency: daily
+    unit: 元/吨
+    cmd: S0033227
+    edb_name: "价格:螺纹钢:HRB400 20mm:上海"
+
+  -
+    source: WIND
+    func: getEDBFromWind
+    frequency: daily
+    unit: 元/吨
+    cmd: S5704863
+    edb_name: "价格:热轧板卷:Q235B:4.75mm:杭州"
+
+  -
+    source: WIND
+    func: getEDBFromWind
+    frequency: daily
+    unit: 元/吨
+    cmd: S5118197
+    edb_name: "天津港:平仓价(含税):一级冶金焦(A<12.5%,<0.65%S,CSR>65%,Mt8%):山西产"
+
+  -
+    source: WIND
+    func: getEDBFromWind
+    frequency: daily
+    unit: 元/湿吨
+    cmd: S0174655
+    edb_name: "车板价:青岛港:澳大利亚:PB粉矿:61.5%"
+
+  -
+    source: WIND
+    func: getEDBFromWind
+    frequency: daily
+    unit: 元/吨
+    cmd: S5112223
+    edb_name: "天津港:库提价(含税):主焦煤(A<8%,V28%,0.8%S,G95,Y20mm):澳大利亚产"
+
+  -
+    source: WIND
+    func: getEDBFromWind
+    frequency: daily
+    unit: 元/吨
+    cmd: S5101377
+    edb_name: "秦皇岛港:平仓价:动力末煤(Q5500):山西产"
+
+  -
+    source: WIND
+    func: getEDBFromWind
+    frequency: daily
+    unit: 元/吨
+    cmd: S5016816
+    edb_name: "市场价:天然橡胶:云南国营全乳胶(SCRWF):上海"
 
 
   -
@@ -184,78 +184,78 @@ SpotMD:
     type: spot
     cmd: [FO380-SIN]
 
-#  -
-#    source: ManualInput
-#    func: getDataFromCSV
-#    frequency: daily
-#    cmd: LL神华煤化工价格
-#    unit: 元/吨
-#    field: price
-#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\LL.csv"
-#
-#  -
-#    source: ManualInput
-#    func: getDataFromCSV
-#    frequency: daily
-#    cmd: 甲醇华东（江苏地区）
-#    unit: 元/吨
-#    field: price
-#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\MA.csv"
-#
-#  -
-#    source: ManualInput
-#    func: getDataFromCSV
-#    frequency: daily
-#    cmd: PP华东现货价
-#    unit: 元/吨
-#    field: price
-#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\PP.csv"
-#
-#  -
-#    source: ManualInput
-#    func: getDataFromCSV
-#    frequency: daily
-#    cmd: TA内盘人民币价
-#    unit: 元/吨
-#    field: price
-#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\PTA.csv"
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: LL神华煤化工价格
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\LL.csv"
 
-#  -
-#    source: ManualInput
-#    func: getDataFromCSV
-#    frequency: daily
-#    cmd: 现货（常州sg-5低端价）
-#    unit: 元/吨
-#    field: price
-#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\PVC.csv"
-#
-#  -
-#    source: ManualInput
-#    func: getDataFromCSV
-#    frequency: daily
-#    cmd: 国产重交-山东
-#    unit: 元/吨
-#    field: price
-#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\沥青.csv"
-#
-#
-#  - source: ManualInput
-#    func: getDataFromCSV
-#    frequency: daily
-#    cmd: MEG
-#    area: 华东主港
-#    unit: 元/吨
-#    field: price
-#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\MEG.csv"
-#
-#  - source: ManualInput
-#    func: getDataFromCSV
-#    frequency: daily
-#    cmd: PX
-#    area: CFR中国
-#    unit: 美元/吨
-#    field: price
-#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\PX.csv"
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: 甲醇华东（江苏地区）
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\MA.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: PP华东现货价
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\PP.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: TA内盘人民币价
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\PTA.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: 现货（常州sg-5低端价）
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\PVC.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: 国产重交-山东
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\沥青.csv"
+
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: MEG
+    area: 华东主港
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\MEG.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: PX
+    area: CFR中国
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\PX.csv"
 
 EDB:
   - {func: getEDBFromWind, source: WIND, cmd: M0067855, edb_name: "即期汇率:美元兑人民币", unit: null, frequency: Daily}
@@ -362,6 +362,9 @@ DerivDB:
     method: LastMonthEnd
     month_list: [6, 12]
 
+#  -
+#    func:
+
 FuturesOIR:
   -
     func: getFuturesOIRFromWind
@@ -370,157 +373,157 @@ FuturesOIR:
       - L.DCE
 
 Inventory:
-#  -
-#    source: Wind
-#    func: getEDBFromWind
-#    frequency: weekly
-#    unit: 吨
-#    cmd: S5471265
-#    edb_name: "社会库存:PVC"
-#
-#  -
-#    source: Wind
-#    func: getEDBFromWind
-#    frequency: weekly
-#    unit: 万吨
-#    cmd: S5713191
-#    edb_name: "全国主要港口:铁矿石库存:总计(45港口)"
-#
-#  -
-#    source: Wind
-#    func: getEDBFromWind
-#    frequency: weekly
-#    unit: 万吨
-#    cmd: S5120058
-#    edb_name: "焦炭库存:天津港"
-#
-#  -
-#    source: Wind
-#    func: getEDBFromWind
-#    frequency: weekly
-#    unit: 万吨
-#    cmd: S5116629
-#    edb_name: "焦炭库存:连云港"
-#
-#  -
-#    source: Wind
-#    func: getEDBFromWind
-#    frequency: weekly
-#    unit: 万吨
-#    cmd: S5116630
-#    edb_name: "焦炭库存:日照港"
-#
-#  -
-#    source: Wind
-#    func: getEDBFromWind
-#    frequency: weekly
-#    unit: 万吨
-#    cmd: S5136709
-#    edb_name: "焦炭库存:青岛港"
-#
-#  -
-#    source: Wind
-#    func: getEDBFromWind
-#    frequency: weekly
-#    unit: 万吨
-#    cmd: S5125686
-#    edb_name: "炼焦煤库存:六港口合计"
-#
-#  -
-#    source: Wind
-#    func: getEDBFromWind
-#    frequency: weekly
-#    unit: 万吨
-#    cmd: S0069694
-#    edb_name: "煤炭库存:秦皇岛港:周"
-#
-#  -
-#    source: Wind
-#    func: getEDBFromWind
-#    frequency: weekly
-#    unit: 吨
-#    cmd: S0049508
-#    edb_name: "库存小计:天然橡胶:总计"
-#
-#  -
-#    source: ManualInput
-#    func: getDataFromCSV
-#    frequency: weekly
-#    cmd: HC
-#    area: 全国33个城市
-#    unit: 万吨
-#    field: inventory
-#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\HC.csv"
-#
-#  -
-#    source: ManualInput
-#    func: getDataFromCSV
-#    frequency: weekly
-#    cmd: LL
-#    area: LL社会库存
-#    unit: 万吨
-#    field: inventory
-#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\LL.csv"
-#
-#  -
-#    source: ManualInput
-#    func: getDataFromCSV
-#    frequency: weekly
-#    cmd: MA
-#    area: "江苏+宁波+广东+福建"
-#    unit: 万吨
-#    field: inventory
-#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\MA.csv"
-#
-#  -
-#    source: ManualInput
-#    func: getDataFromCSV
-#    frequency: weekly
-#    cmd: MEG
-#    area: MEG港口库存
-#    unit: 万吨
-#    field: inventory
-#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\MEG.csv"
-#
-#  -
-#    source: ManualInput
-#    func: getDataFromCSV
-#    frequency: weekly
-#    cmd: PP
-#    area: PP社会库存
-#    unit: 万吨
-#    field: inventory
-#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\PP.csv"
-#
-#  -
-#    source: ManualInput
-#    func: getDataFromCSV
-#    frequency: weekly
-#    cmd: PTA
-#    area: "PTA总库存（忠朴）"
-#    unit: 万吨
-#    field: inventory
-#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\PTA.csv"
-#
-#  -
-#    source: ManualInput
-#    func: getDataFromCSV
-#    frequency: weekly
-#    cmd: RB
-#    area: 35城市
-#    unit: 万吨
-#    field: inventory
-#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\RB.csv"
-#
-#  -
-#    source: ManualInput
-#    func: getDataFromCSV
-#    frequency: weekly
-#    cmd: BU
-#    area: 山东炼厂库存率
-#    unit: "%"
-#    field: inventory
-#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\BU.csv"
+  -
+    source: Wind
+    func: getEDBFromWind
+    frequency: weekly
+    unit: 吨
+    cmd: S5471265
+    edb_name: "社会库存:PVC"
+
+  -
+    source: Wind
+    func: getEDBFromWind
+    frequency: weekly
+    unit: 万吨
+    cmd: S5713191
+    edb_name: "全国主要港口:铁矿石库存:总计(45港口)"
+
+  -
+    source: Wind
+    func: getEDBFromWind
+    frequency: weekly
+    unit: 万吨
+    cmd: S5120058
+    edb_name: "焦炭库存:天津港"
+
+  -
+    source: Wind
+    func: getEDBFromWind
+    frequency: weekly
+    unit: 万吨
+    cmd: S5116629
+    edb_name: "焦炭库存:连云港"
+
+  -
+    source: Wind
+    func: getEDBFromWind
+    frequency: weekly
+    unit: 万吨
+    cmd: S5116630
+    edb_name: "焦炭库存:日照港"
+
+  -
+    source: Wind
+    func: getEDBFromWind
+    frequency: weekly
+    unit: 万吨
+    cmd: S5136709
+    edb_name: "焦炭库存:青岛港"
+
+  -
+    source: Wind
+    func: getEDBFromWind
+    frequency: weekly
+    unit: 万吨
+    cmd: S5125686
+    edb_name: "炼焦煤库存:六港口合计"
+
+  -
+    source: Wind
+    func: getEDBFromWind
+    frequency: weekly
+    unit: 万吨
+    cmd: S0069694
+    edb_name: "煤炭库存:秦皇岛港:周"
+
+  -
+    source: Wind
+    func: getEDBFromWind
+    frequency: weekly
+    unit: 吨
+    cmd: S0049508
+    edb_name: "库存小计:天然橡胶:总计"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: HC
+    area: 全国33个城市
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\HC.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: LL
+    area: LL社会库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\LL.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: MA
+    area: "江苏+宁波+广东+福建"
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\MA.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: MEG
+    area: MEG港口库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\MEG.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: PP
+    area: PP社会库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\PP.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: PTA
+    area: "PTA总库存（忠朴）"
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\PTA.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: RB
+    area: 35城市
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\RB.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: BU
+    area: 山东炼厂库存率
+    unit: "%"
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\BU.csv"
 
   -
     source: ThomsonReuters
