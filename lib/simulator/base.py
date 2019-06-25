@@ -630,6 +630,7 @@ class BacktestSys(object):
                 资金按照合约价值来分配持仓。
         mode=2: 不加杠杆。所有持仓品种按照其波动率进行调整，按照相对的波动来对持仓进行分配。
         mode=3: 不加杠杆。所有持仓品种按照ATR进行调整，按照ATR来对持仓进行分配。计算ATR时需要最高价最低价
+        mode=4: 不加杠杆。多空的资金相同，各个方向里的持仓品种的合约价值相同。
         """
         if not self.holdingsCheck(holdingsObj):
             raise Exception('持仓品种没有行情数据，请检查字段是否正确')
@@ -688,7 +689,6 @@ class BacktestSys(object):
                 for h in holdingsObj.asset:
                     holdingsObj.update_holdings(h, holdings_new[h].values.flatten())
                 return holdingsObj
-
 
         elif mode == 2:
             # 计算各合约过去一年的合约价值的标准差
@@ -787,6 +787,86 @@ class BacktestSys(object):
             for h in holdingsObj.asset:
                 holdingsObj.update_holdings(h, holdings_new[h].values.flatten())
             return holdingsObj
+
+        elif mode == 4:
+            # 根据是否多空，分配资金。如果有多空，则各一半，否则为全部
+            capital_buy_sell = holdings_df.apply(
+                func=lambda x: self.capital / 2. if (x > 0).any() * (x < 0).any() else self.capital,
+                axis=1, raw=True)
+            # 做多的个数和做空的个数
+            num_buy = holdings_df.apply(func=lambda x: len(x[x > 0]), axis=1, raw=True)
+            num_sell = holdings_df.apply(func=lambda x: len(x[x < 0]), axis=1, raw=True)
+            capital_buy = pd.DataFrame()
+            capital_sell = pd.DataFrame()
+            for c in holdings_df:
+                capital_buy[c] = capital_buy_sell / num_buy
+                capital_sell[c] = capital_buy_sell / num_sell
+
+            capital = pd.DataFrame(0, index=holdings_df.index, columns=holdings_df.columns)
+            capital[holdings_df > 0] = capital_buy[holdings_df > 0]
+            capital[holdings_df < 0] = capital_sell[holdings_df < 0]
+
+            cls_df = cls_df * np.sign(holdings_df)
+            cls_df[cls_df == 0] = np.nan
+
+            holdings_new = capital / cls_df
+            holdings_new.fillna(0, inplace=True)
+            holdings_new = holdings_new.round(decimals=0)
+            for h in holdingsObj.asset:
+                holdingsObj.update_holdings(h, holdings_new[h].values.flatten())
+            return holdingsObj
+
+        elif mode == 5:
+            # 根据是否多空，分配资金。如果有多空，则各一半，否则为全部
+            capital_buy_sell = holdings_df.apply(
+                func=lambda x: self.capital / 2. if (x > 0).any() * (x < 0).any() else self.capital,
+                axis=1, raw=True)
+            # 做多的个数和做空的个数
+            num_buy = holdings_df.apply(func=lambda x: len(x[x > 0]), axis=1, raw=True)
+            num_sell = holdings_df.apply(func=lambda x: len(x[x < 0]), axis=1, raw=True)
+            capital_buy = pd.DataFrame()
+            capital_sell = pd.DataFrame()
+            for c in holdings_df:
+                capital_buy[c] = capital_buy_sell / num_buy
+                capital_sell[c] = capital_buy_sell / num_sell
+
+            capital = pd.DataFrame(0, index=holdings_df.index, columns=holdings_df.columns)
+            capital[holdings_df > 0] = capital_buy[holdings_df > 0]
+            capital[holdings_df < 0] = capital_sell[holdings_df < 0]
+
+            cls_df = cls_df * np.sign(holdings_df)
+            cls_df[cls_df == 0] = np.nan
+
+            holdings_new = capital / cls_df
+            holdings_new.fillna(0, inplace=True)
+
+            # 判断初始持仓是否与前一天的初始持仓相同
+            holdings_yestd = holdings_df.shift(periods=1)
+            holdings_equal = np.sign(holdings_df) == np.sign(holdings_yestd)
+
+            # 分别统计多仓和空仓的当天与前一天的持仓个数是否相同
+            num_buy_yestd = num_buy.shift(periods=1)
+            num_sell_yestd = num_sell.shift(periods=1)
+
+            num_buy_equal = num_buy == num_buy_yestd
+            num_sell_equal = num_sell == num_sell_yestd
+
+            num_buy_equal_df = pd.DataFrame()
+            num_sell_equal_df = pd.DataFrame()
+            for c in holdings_df:
+                num_buy_equal_df[c] = num_buy_equal
+                num_sell_equal_df[c] = num_sell_equal
+
+            holdings_equal[(holdings_df > 0) & ~num_buy_equal_df] = False
+            holdings_equal[(holdings_df < 0) & ~num_sell_equal_df] = False
+
+            holdings_new[holdings_equal] = np.nan
+            holdings_new.fillna(method='ffill', inplace=True)
+            holdings_new = holdings_new.round(decimals=0)
+            for h in holdingsObj.asset:
+                holdingsObj.update_holdings(h, holdings_new[h].values.flatten())
+            return holdingsObj
+
 
 
     def getPnlDaily(self, holdingsObj):
@@ -1410,7 +1490,6 @@ class BacktestSys(object):
         print('最大回撤起始时间：', dds)
         print('最大回撤结束时间：', dde)
         print('最终资金净值：', net_value[-1])
-
 
     def calcIndicator(self, net_value):
         rtn_daily = np.ones(len(net_value)) * np.nan
