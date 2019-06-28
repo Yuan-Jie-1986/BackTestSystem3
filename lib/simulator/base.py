@@ -1507,7 +1507,7 @@ class BacktestSys(object):
 
         return annual_rtn, annual_std, sharpe, max_drawdown, max_drawdown_start, max_drawdown_end
 
-    def calcIndicatorByYear(self, net_value, turnover_rate):
+    def calcIndicatorByYear(self, net_value, turnover_rate, show=True):
 
         # 分年度进行统计，这里需要注意，标准差的计算是使用的无偏
 
@@ -1587,9 +1587,17 @@ class BacktestSys(object):
         pd.set_option('display.max_columns', 10)
         pd.set_option('display.width', 200)
 
-        print(res_df)
+        if show:
+            print(res_df)
 
         return res_df
+
+    def getTotalResult(self, holdingsObj, show=True):
+
+        pnl, margin_occ, value, turnover_rate = self.getPnlDaily(holdingsObj)
+        nv = 1. + np.cumsum(pnl) / self.capital  # 转换成初始净值为1
+        res = self.calcIndicatorByYear(nv, turnover_rate, show=show)
+        return res
 
 
 
