@@ -32,6 +32,15 @@ def reconstruction(x):
     new['contract_count'] = x['wind_code'].count()
     return new
 
+def seize_code(full_code):
+    ptn1 = re.compile('[A-za-z]+(?=\d+\.)')
+    res1 = ptn1.search(full_code).group()
+    ptn2 = re.compile('(?<=([A-Za-z]))\d+(?=\.)')
+    res2 = ptn2.search(full_code).group()
+    ptn3 = re.compile('(?<=\d\.)[A-Za-z]+')
+    res3 = ptn3.search(full_code).group()
+    return res1 + res2[-3:] + '.' + res3
+
 for cmd in cmd_list:
     print(cmd)
     ptn_1 = re.compile('\w+(?=\.)')
@@ -53,7 +62,10 @@ for cmd in cmd_list:
     if df.empty:
         continue
     df.drop(columns='_id', inplace=True)
-    df.drop_duplicates(subset=['date', 'CLOSE', 'OPEN', 'HIGH', 'LOW', 'SETTLE', 'VOLUME', 'OI', 'DEALNUM'], inplace=True)
+    df['fake_code'] = df['wind_code'].apply(func=seize_code)
+    df.drop_duplicates(
+        subset=['date', 'CLOSE', 'OPEN', 'HIGH', 'LOW', 'SETTLE', 'VOLUME', 'OI', 'DEALNUM', 'fake_code'], inplace=True)
+    df.drop(columns='fake_code', inplace=True)
     df_group = df.groupby(by='date')
     df_index = df_group.apply(func=reconstruction)
     df_index['name'] = '%s888.%s' % (res_1, res_2)

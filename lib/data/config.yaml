@@ -55,28 +55,28 @@ FuturesMD:
     func: getFutureGroupPriceFromWind
     alldaytrade: 0
     cmd:
-      - L.DCE
-      - PP.DCE
-      - I.DCE
-      - J.DCE
-      - JM.DCE
-      - M.DCE
-      - C.DCE
-      - RB.SHF
-      - BU.SHF
-      - RU.SHF
-      - NI.SHF
-      - HC.SHF
-      - TA.CZC
-      - MA.CZC
-      - AP.CZC
-      - ZC.CZC
-      - SR.CZC
-      - RM.CZC
-      - SC.INE
-      - EG.DCE
-      - SP.SHF
-      - FG.CZC
+#      - L.DCE
+#      - PP.DCE
+#      - I.DCE
+#      - J.DCE
+#      - JM.DCE
+#      - M.DCE
+#      - C.DCE
+#      - RB.SHF
+#      - BU.SHF
+#      - RU.SHF
+#      - NI.SHF
+#      - HC.SHF
+#      - TA.CZC
+#      - MA.CZC
+#      - AP.CZC
+#      - ZC.CZC
+#      - SR.CZC
+#      - RM.CZC
+#      - SC.INE
+#      - EG.DCE
+#      - SP.SHF
+#      - FG.CZC
       - V.DCE
       - CU.SHF
       - AL.SHF
@@ -189,7 +189,16 @@ SpotMD:
     cmd: LL神华煤化工价格
     unit: 元/吨
     field: price
-    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\LL.csv"
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\LL_SHENHUA.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: LL华东
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\LL_HUADONG.csv"
 
   -
     source: ManualInput

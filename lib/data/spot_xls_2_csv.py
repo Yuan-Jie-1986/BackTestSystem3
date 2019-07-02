@@ -8,7 +8,8 @@ path = 'E:\CBNB\BackTestSystem3\lib\data\supplement_db'
 file_nm = u'E:\CBNB\BackTestSystem3\lib\data\supplement_db\spot_price.xlsx'
 
 
-col_dict = {'LL神华煤化工价格': 'LL',
+col_dict = {'LL神华煤化工价格': 'LL_SHENHUA',
+            'LL华东': 'LL_HUADONG',
             'PP华东现货价': 'PP',
             '甲醇华东（江苏地区）': 'MA',
             '现货（常州sg-5低端价）': 'PVC',
