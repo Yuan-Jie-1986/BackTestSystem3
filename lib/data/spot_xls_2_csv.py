@@ -16,12 +16,13 @@ col_dict = {'LL神华煤化工价格': 'LL_SHENHUA',
             'TA内盘人民币价': 'PTA',
             '国产重交-山东': u'沥青',
             'MEG': 'MEG',
-            'PX': 'PX'}
+            'PX': 'PX',
+            '泰国STR20混合胶': 'RU'}
 
 spot_xls = pd.read_excel(file_nm, index_col='日期')
 spot_xls = spot_xls[col_dict.keys()]
 for c in spot_xls.columns:
-    spot_c = spot_xls[[c]]
+    spot_c = spot_xls[[c]].copy()
     spot_c.replace(0, np.nan, inplace=True)
     spot_c.dropna(inplace=True)
     spot_c.to_csv(path + '\\' + col_dict[c] + '.csv', encoding='utf-8')

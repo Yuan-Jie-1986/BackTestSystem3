@@ -11,8 +11,8 @@ pwd: yuanjie
 log_path: "E:\\CBNB\\BackTestSystem\\data_saving.log"
 
 collection:
-#  - Information
-#  - FuturesMinMD
+  - Information
+  - FuturesMinMD
   - FuturesMD
   - SpotMD
   - EDB
@@ -55,28 +55,28 @@ FuturesMD:
     func: getFutureGroupPriceFromWind
     alldaytrade: 0
     cmd:
-#      - L.DCE
-#      - PP.DCE
-#      - I.DCE
-#      - J.DCE
-#      - JM.DCE
-#      - M.DCE
-#      - C.DCE
-#      - RB.SHF
-#      - BU.SHF
-#      - RU.SHF
-#      - NI.SHF
-#      - HC.SHF
-#      - TA.CZC
-#      - MA.CZC
-#      - AP.CZC
-#      - ZC.CZC
-#      - SR.CZC
-#      - RM.CZC
-#      - SC.INE
-#      - EG.DCE
-#      - SP.SHF
-#      - FG.CZC
+      - L.DCE
+      - PP.DCE
+      - I.DCE
+      - J.DCE
+      - JM.DCE
+      - M.DCE
+      - C.DCE
+      - RB.SHF
+      - BU.SHF
+      - RU.SHF
+      - NI.SHF
+      - HC.SHF
+      - TA.CZC
+      - MA.CZC
+      - AP.CZC
+      - ZC.CZC
+      - SR.CZC
+      - RM.CZC
+      - SC.INE
+      - EG.DCE
+      - SP.SHF
+      - FG.CZC
       - V.DCE
       - CU.SHF
       - AL.SHF
@@ -132,6 +132,15 @@ SpotMD:
     unit: 元/吨
     cmd: S5118197
     edb_name: "天津港:平仓价(含税):一级冶金焦(A<12.5%,<0.65%S,CSR>65%,Mt8%):山西产"
+
+  -
+    source: WIND
+    func: getEDBFromWind
+    frequency: daily
+    unit: 元/吨
+    cmd: S5118429
+    edb_name: "天津港:平仓价(含税):准一级冶金焦(A<12.5%,<0.7%S,CSR>60%,Mt8%)"
+
 
   -
     source: WIND
@@ -244,6 +253,15 @@ SpotMD:
     unit: 元/吨
     field: price
     path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\沥青.csv"
+
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: 泰国STR20混合胶
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\RU.csv"
 
 
   - source: ManualInput
@@ -476,6 +494,18 @@ Inventory:
     source: ManualInput
     func: getDataFromCSV
     frequency: weekly
+    cmd: LL
+    area: LL石化库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\LL石化库存.csv"
+
+
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
     cmd: MA
     area: "江苏+宁波+广东+福建"
     unit: 万吨
@@ -501,6 +531,16 @@ Inventory:
     unit: 万吨
     field: inventory
     path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\PP.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: PP
+    area: PP石化库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\PP石化库存.csv"
 
   -
     source: ManualInput
