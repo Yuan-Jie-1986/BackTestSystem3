@@ -17,7 +17,21 @@ col_dict = {'LL神华煤化工价格': 'LL_SHENHUA',
             '国产重交-山东': u'沥青',
             'MEG': 'MEG',
             'PX': 'PX',
-            '泰国STR20混合胶': 'RU'}
+            '泰国STR20混合胶': 'RU',
+            '华北融指1线性（天津9085）': 'RONGZHI_HUABEI',
+            '华北重包': 'ZHONGBAO_HUABEI',
+            '地膜': 'DIMO',
+            '双防膜': 'SHUANGFANGMO',
+            '缠绕膜': 'CHANRAOMO',
+            'BOPP膜': 'BOPPMO',
+            '华北电石法 SG5': 'SG5_HUABEI',
+            '电石华北 山东': 'DIANSHI_SD',
+            '液氯华北': 'YELV_HUABEI',
+            '华北电价': 'DIANJIA_HUABEI',
+            'POY150D/48F': 'POY',
+            'BZ': 'BZ',
+            'SM': 'SM',
+            '杯胶（泰铢/kg)': 'BEIJIAO'}
 
 spot_xls = pd.read_excel(file_nm, index_col='日期')
 spot_xls = spot_xls[col_dict.keys()]

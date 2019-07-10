@@ -601,6 +601,11 @@ class ProfitRate(object):
         sys.stdout.write('\n')
         sys.stdout.flush()
 
+    # def calc_ru_profit_rate(self, method='future'):
+
+
+
+
     def get_pvc_profit_rate(self):
         file_address = 'profit_db/pvc.csv'
         df = pd.read_csv(file_address, index_col='日期', parse_dates=True)

@@ -282,8 +282,155 @@ SpotMD:
     field: price
     path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\PX.csv"
 
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: 华北融指1线性（天津9085）
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\RONGZHI_HUABEI.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: 华北重包
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\ZHONGBAO_HUABEI.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: 地膜
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\DIMO.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: 双防膜
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\SHUANGFANGMO.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: 缠绕膜
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\CHANRAOMO.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: BOPP膜
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\BOPPMO.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: "华北电石法 SG5"
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\SG5_HUABEI.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: "电石华北 山东"
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\DIANSHI_SD.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: "液氯华北"
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\YELV_HUABEI.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: "华北电价"
+    unit: 元/千千瓦时
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\DIANJIA_HUABEI.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: "POY150D/48F"
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\POY.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: BZ
+    area: FOB韩国
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\BZ.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: SM
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\SM.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: "杯胶（泰铢/kg)"
+    unit: 泰铢/千克
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\BEIJIAO.csv"
+
 EDB:
-  - {func: getEDBFromWind, source: WIND, cmd: M0067855, edb_name: "即期汇率:美元兑人民币", unit: null, frequency: Daily}
+  -
+    func: getEDBFromWind
+    source: WIND
+    cmd: M0067855
+    edb_name: "即期汇率:美元兑人民币"
+    unit: null
+    frequency: Daily
+  -
+    func: getEDBFromWind
+    source: WIND
+    cmd: S5016928
+    edb_name: "期货结算价(活跃合约):新加坡橡胶:TSR20(FOB)"
+    unit: 美分/公斤
+    frequency: Daily
+
+  - func: getEDBFromWind
+    source: WIND
+    cmd: G0522656
+    edb_name: "泰国:即期汇率:美元兑泰铢:卖出价"
+    unit: null
+    frequency: Daily
 
 DateDB:
   -
@@ -571,6 +718,17 @@ Inventory:
     unit: "%"
     field: inventory
     path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\BU.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: RU
+    area: "区外库存指数（单位：2015定基1）"
+    unit: null
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\橡胶区外库存.csv"
+
 
   -
     source: ThomsonReuters
