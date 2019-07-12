@@ -29,8 +29,6 @@ col_dict = {'LL神华煤化工价格': 'LL_SHENHUA',
             '液氯华北': 'YELV_HUABEI',
             '华北电价': 'DIANJIA_HUABEI',
             'POY150D/48F': 'POY',
-            'BZ': 'BZ',
-            'SM': 'SM',
             '杯胶（泰铢/kg)': 'BEIJIAO'}
 
 spot_xls = pd.read_excel(file_nm, index_col='日期')

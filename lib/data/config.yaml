@@ -11,13 +11,13 @@ pwd: yuanjie
 log_path: "E:\\CBNB\\BackTestSystem\\data_saving.log"
 
 collection:
-  - Information
-  - FuturesMinMD
-  - FuturesMD
+##  - Information
+##  - FuturesMinMD
+#  - FuturesMD
   - SpotMD
-  - EDB
-  - DerivDB
-  - Inventory
+#  - EDB
+#  - DerivDB
+#  - Inventory
 #  - FuturesOIR
 #  - DateDB
 
@@ -432,6 +432,13 @@ EDB:
     unit: null
     frequency: Daily
 
+  - func: getEDBFromWind
+    source: WIND
+    cmd: M0330260
+    edb_name: "中间价:人民币兑泰铢"
+    unit: null
+    frequency: Daily
+
 DateDB:
   -
     func: getDateSeries
@@ -608,6 +615,30 @@ Inventory:
     unit: 万吨
     cmd: S0069694
     edb_name: "煤炭库存:秦皇岛港:周"
+
+  -
+    source: Wind
+    func: getEDBFromWind
+    frequency: daily
+    unit: 万吨
+    cmd: S5116621
+    edb_name: "煤炭库存:6大发电集团:合计"
+
+  -
+    source: Wind
+    func: getEDBFromWind
+    frequency: daily
+    unit: 万吨
+    cmd: S5118163
+    edb_name: "煤炭库存:曹妃甸港"
+
+  -
+    source: Wind
+    func: getEDBFromWind
+    frequency: daily
+    unit: 万吨
+    cmd: S5103725
+    edb_name: "煤炭库存:秦皇岛港"
 
   -
     source: Wind

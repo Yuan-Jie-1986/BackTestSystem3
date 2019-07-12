@@ -601,9 +601,93 @@ class ProfitRate(object):
         sys.stdout.write('\n')
         sys.stdout.flush()
 
-    # def calc_ru_profit_rate(self, method='future'):
+    def calc_ru_profit_rate(self, method='future'):
+        """RU的利润公式：(【TSR20合约结算价(美分/kg)】/100-(【杯胶（泰铢/kg)】+8.5)/【美元兑泰铢】)*1000"""
+        if method == 'spot':
+            # 橡胶价格只能更新到前一天，美元兑泰铢也是只能更新到前一天
+            queryArgs = {'wind_code': 'S5016928'}
+            projectionField = ['date', 'CLOSE']
+            records = self.edb_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            ru = pd.DataFrame.from_records(records, index='date')
+            ru.drop(columns='_id', inplace=True)
+            ru.rename(columns={'CLOSE': 'RU.SHF'}, inplace=True)
+
+            queryArgs = {'wind_code': 'G0522656'}
+            projectionField = ['date', 'CLOSE']
+            records = self.edb_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            exrate = pd.DataFrame.from_records(records, index='date')
+            exrate.drop(columns=['_id'], inplace=True)
+            exrate.rename(columns={'CLOSE': 'ExRate'}, inplace=True)
+        elif method == 'future':
+            queryArgs = {'wind_code': 'RU.SHF'}
+            projectionField = ['date', 'CLOSE']
+            records = self.futures_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            ru = pd.DataFrame.from_records(records, index='date')
+            ru.drop(columns=['_id'], inplace=True)
+            ru.rename(columns={'CLOSE': 'RU.SHF'}, inplace=True)
+
+            queryArgs = {'wind_code': 'M0330260'}
+            projectionField = ['date', 'CLOSE']
+            records = self.edb_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            exrate = pd.DataFrame.from_records(records, index='date')
+            exrate.drop(columns=['_id'], inplace=True)
+            exrate.rename(columns={'CLOSE': 'ExRate'}, inplace=True)
+
+        queryArgs = {'commodity': '杯胶（泰铢/kg)'}
+        projectionField = ['date', 'price']
+        records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        beijiao = pd.DataFrame.from_records(records, index='date')
+        beijiao.drop(columns='_id', inplace=True)
+        beijiao.rename(columns={'price': 'BEIJIAO'}, inplace=True)
+
+        total_df = ru.join(beijiao, how='outer')
+        total_df = total_df.join(exrate, how='left')
+
+        total_df.fillna(method='ffill', inplace=True)
+        total_df.dropna(inplace=True)
+
+        if method == 'spot':
+            total_df['upper_profit'] = (total_df['RU.SHF'] / 100. - (total_df['BEIJIAO'] + 8.5) / total_df[
+                'ExRate']) * 1000.
+        elif method == 'future':
+            total_df['upper_profit'] = total_df['RU.SHF'] - (total_df['BEIJIAO'] + 8.5) / total_df['ExRate'] * 1000
+
+        total_df['upper_profit_rate'] = total_df['upper_profit'] / (
+                    (total_df['BEIJIAO'] + 8.5) / total_df['ExRate'] * 1000.)
+
+        total_df.drop(columns=['RU.SHF', 'BEIJIAO', 'ExRate'], inplace=True)
+        total_df['date'] = total_df.index
+        total_df['commodity'] = 'RU.SHF'
+        total_df['method'] = method
 
 
+        res_dict = total_df.to_dict(orient='index')
+        print('插入RU的%s利润率' % method)
+        total = len(res_dict)
+        count = 1
+        for k, v in res_dict.items():
+            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+            sys.stdout.flush()
+
+            queryArgs = {'commodity': 'RU.SHF', 'date': v['date'], 'method': method}
+            projectionField = ['upper_profit', 'upper_profit_rate']
+            res = self.target_coll.find_one(queryArgs, projectionField)
+            if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
+                count += 1
+                continue
+            elif res and (
+                    res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
+                self.target_coll.delete_many(queryArgs)
+                v.update({'update_time': datetime.now()})
+                self.target_coll.insert_one(v)
+            else:
+                v.update({'update_time': datetime.now()})
+                self.target_coll.insert_one(v)
+            count += 1
+
+        sys.stdout.write('\n')
+        sys.stdout.flush()
 
 
     def get_pvc_profit_rate(self):
@@ -625,6 +709,92 @@ class ProfitRate(object):
             sys.stdout.flush()
 
             queryArgs = {'commodity': 'V.DCE', 'date': v['date']}
+            projectionField = ['upper_profit', 'upper_profit_rate']
+            res = self.target_coll.find_one(queryArgs, projectionField)
+            if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
+                count += 1
+                continue
+            elif res and (
+                    res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
+                self.target_coll.delete_many(queryArgs)
+                v.update({'update_time': datetime.now()})
+                self.target_coll.insert_one(v)
+            else:
+                v.update({'update_time': datetime.now()})
+                self.target_coll.insert_one(v)
+            count += 1
+
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
+    def calc_pvc_profit_rate(self, method='future'):
+        '''PVC的利润公式：【华北电石法 SG5】-(【电石华北 山东】*1.5+【液氯华北】*0.8+【华北电价】*0.5+1100)'''
+        if method == 'spot':
+            queryArgs = {'commodity': '华北电石法 SG5'}
+            projectionField = ['date', 'price']
+            records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            pvc = pd.DataFrame.from_records(records, index='date')
+            pvc.drop(columns='_id', inplace=True)
+            pvc.rename(columns={'price': 'V.DCE'}, inplace=True)
+        elif method == 'future':
+            queryArgs = {'wind_code': 'V.DCE'}
+            projectionField = ['date', 'CLOSE']
+            records = self.futures_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            pvc = pd.DataFrame.from_records(records, index='date')
+            pvc.drop(columns='_id', inplace=True)
+            pvc.rename(columns={'CLOSE': 'V.DCE'}, inplace=True)
+
+        queryArgs = {'commodity': '电石华北 山东'}
+        projectionField = ['date', 'price']
+        records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        dianshi = pd.DataFrame.from_records(records, index='date')
+        dianshi.drop(columns='_id', inplace=True)
+        dianshi.rename(columns={'price': 'DIANSHI'}, inplace=True)
+
+        queryArgs = {'commodity': '液氯华北'}
+        projectionField = ['date', 'price']
+        records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        yelv = pd.DataFrame.from_records(records, index='date')
+        yelv.drop(columns='_id', inplace=True)
+        yelv.rename(columns={'price': 'YELV'}, inplace=True)
+
+        queryArgs = {'commodity': '华北电价'}
+        projectionField = ['date', 'price']
+        records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        dianjia = pd.DataFrame.from_records(records, index='date')
+        dianjia.drop(columns='_id', inplace=True)
+        dianjia.rename(columns={'price': 'DIANJIA'}, inplace=True)
+
+
+        total_df = pvc.join(dianshi, how='outer')
+        total_df = total_df.join(yelv, how='outer')
+        total_df = total_df.join(dianjia, how='outer')
+
+        total_df.fillna(method='ffill', inplace=True)
+        total_df.dropna(inplace=True)
+
+        total_df['upper_profit'] = total_df['V.DCE'] - (
+                    total_df['DIANSHI'] * 1.5 + total_df['YELV'] * 0.8 + total_df['DIANJIA'] * 0.5 + 1100)
+
+        total_df['upper_profit_rate'] = total_df['upper_profit'] / (
+                    total_df['DIANSHI'] * 1.5 + total_df['YELV'] * 0.8 + total_df['DIANJIA'] * 0.5 + 1100)
+
+        total_df.drop(columns=['V.DCE', 'DIANSHI', 'YELV', 'DIANJIA'], inplace=True)
+        total_df['date'] = total_df.index
+        total_df['commodity'] = 'V.DCE'
+        total_df['method'] = method
+
+        res_dict = total_df.to_dict(orient='index')
+        print('插入PVC的%s利润率' % method)
+        total = len(res_dict)
+        count = 1
+        for k, v in res_dict.items():
+
+            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+            sys.stdout.flush()
+
+            queryArgs = {'commodity': 'V.DCE', 'date': v['date'], 'method': method}
             projectionField = ['upper_profit', 'upper_profit_rate']
             res = self.target_coll.find_one(queryArgs, projectionField)
             if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
@@ -806,8 +976,10 @@ a.calc_hc_profit_rate(method='future')
 a.calc_hc_profit_rate(method='spot')
 a.calc_j_profit_rate(method='future')
 a.calc_j_profit_rate(method='spot')
-a.get_ru_profit_rate()
-a.get_pvc_profit_rate()
+a.calc_ru_profit_rate(method='future')
+a.calc_ru_profit_rate(method='spot')
+a.calc_pvc_profit_rate(method='future')
+a.calc_pvc_profit_rate(method='spot')
 a.calc_bu_profit_rate(method='future')
 a.calc_bu_profit_rate(method='spot')
 a.calc_pta_profit_rate(method='future')
