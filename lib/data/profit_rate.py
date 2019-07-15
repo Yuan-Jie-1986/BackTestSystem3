@@ -64,8 +64,9 @@ class ProfitRate(object):
         total_df = ll.join(mopj, how='outer')
         total_df = total_df.join(exrate, how='left')  #这里需要注意汇率数据，不要使用outer方法
 
-        if method == 'future':
-            total_df['MOPJ'] = total_df['MOPJ'].shift(periods=1)
+        # if method == 'future':
+        # MOPJ外盘数据要滞后一天
+        total_df['MOPJ'] = total_df['MOPJ'].shift(periods=1)
         total_df.fillna(method='ffill', inplace=True)
         total_df.dropna(inplace=True)
 
@@ -823,7 +824,7 @@ class ProfitRate(object):
             bu.drop(columns=['_id'], inplace=True)
             bu.rename(columns={'CLOSE': 'BU.SHF'}, inplace=True)
         elif method == 'spot':
-            queryArgs = {'commodity': '国产重交-长三角'}
+            queryArgs = {'commodity': '国产重交-山东'}
             projectionField = ['date', 'price']
             records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
             bu = pd.DataFrame.from_records(records, index='date')
@@ -846,8 +847,8 @@ class ProfitRate(object):
 
         total_df = bu.join(dub, how='outer')
         total_df = total_df.join(exrate, how='left')
-        if method == 'future':
-            total_df['DUB-1M'] = total_df['DUB-1M'].shift(periods=1)
+        # if method == 'future':
+        total_df['DUB-1M'] = total_df['DUB-1M'].shift(periods=1)
 
         total_df.fillna(method='ffill', inplace=True)
         total_df.dropna(inplace=True)
@@ -920,8 +921,8 @@ class ProfitRate(object):
 
         total_df = ta.join(px, how='outer')
         total_df = total_df.join(exrate, how='left')
-        if method == 'future':
-            total_df['PX'] = total_df['PX'].shift(periods=1)
+        # if method == 'future':
+        total_df['PX'] = total_df['PX'].shift(periods=1)
         total_df.fillna(method='ffill', inplace=True)
         total_df.dropna(inplace=True)
 
