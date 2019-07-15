@@ -254,6 +254,7 @@ class TradeRecordByTimes(object):
     def calValue(self):
         self.trade_commodity_value = self.trade_price * self.trade_multiplier * abs(self.trade_volume) * \
                                      self.trade_exchangeRate
+        return self.trade_commodity_value
 
 
     def calCost(self):
@@ -873,7 +874,7 @@ class BacktestSys(object):
         '''
         根据持仓情况计算每日的pnl，每日的保证金占用，每日的合约价值
         holdingsObj是持仓数据类的实例
-        根据持仓情况统计每日换手率，即成交额/总资金，应该是在0-2之间
+        根据持仓情况统计每日换手率，即成交的合约价值/总资金，如果不加杠杆应该是在0-2之间
         需要注意的一点是，如果换合约的时候，没有成交量，使用的是之前的价格进行的平仓，导致的回测的pnl和换手不准确，暂时无法解决
         '''
 
@@ -924,7 +925,7 @@ class BacktestSys(object):
                         if self.tcost:
                             newtrade.setCost(**self.tcost_list[h])
                         newtrade.calCost()
-                        turnover_daily[i] += newtrade.calMarginOccupation()
+                        turnover_daily[i] += newtrade.calValue()
                         newtradedaily.append(newtrade)
 
                 # 如果不是第一天交易的话，需要前一天的收盘价
@@ -990,7 +991,7 @@ class BacktestSys(object):
                         if self.tcost:
                             newtrade1.setCost(**self.tcost_list[h])
                         newtrade1.calCost()
-                        turnover_daily[i] += newtrade1.calMarginOccupation()
+                        turnover_daily[i] += newtrade1.calValue()
                         newtradedaily.append(newtrade1)
 
                         if holdings_td != 0:
@@ -1008,7 +1009,7 @@ class BacktestSys(object):
                             if self.tcost:
                                 newtrade2.setCost(**self.tcost_list[h])
                             newtrade2.calCost()
-                            turnover_daily[i] += newtrade2.calMarginOccupation()
+                            turnover_daily[i] += newtrade2.calValue()
                             newtradedaily.append(newtrade2)
 
                     else:
@@ -1027,7 +1028,7 @@ class BacktestSys(object):
                             if self.tcost:
                                 newtrade1.setCost(**self.tcost_list[h])
                             newtrade1.calCost()
-                            turnover_daily[i] += newtrade1.calMarginOccupation()
+                            turnover_daily[i] += newtrade1.calValue()
                             newtradedaily.append(newtrade1)
 
                             newtrade2 = TradeRecordByTimes()
@@ -1044,7 +1045,7 @@ class BacktestSys(object):
                             if self.tcost:
                                 newtrade2.setCost(**self.tcost_list[h])
                             newtrade2.calCost()
-                            turnover_daily[i] += newtrade2.calMarginOccupation()
+                            turnover_daily[i] += newtrade2.calValue()
                             newtradedaily.append(newtrade2)
 
                         elif holdings_td == holdings_ystd:  # 没有交易
@@ -1065,7 +1066,7 @@ class BacktestSys(object):
                             if self.tcost:
                                 newtrade.setCost(**self.tcost_list[h])
                             newtrade.calCost()
-                            turnover_daily[i] += newtrade.calMarginOccupation()
+                            turnover_daily[i] += newtrade.calValue()
                             newtradedaily.append(newtrade)
 
             trd = TradeRecordByDay(dt=v, holdPosDict=holdpos, MkData=mkdata, newTrade=newtradedaily)
