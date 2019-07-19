@@ -11,13 +11,13 @@ pwd: yuanjie
 log_path: "E:\\CBNB\\BackTestSystem\\data_saving.log"
 
 collection:
-##  - Information
-##  - FuturesMinMD
+#  - Information
+#  - FuturesMinMD
 #  - FuturesMD
   - SpotMD
-#  - EDB
-#  - DerivDB
-#  - Inventory
+  - EDB
+  - DerivDB
+  - Inventory
 #  - FuturesOIR
 #  - DateDB
 
@@ -381,24 +381,24 @@ SpotMD:
     field: price
     path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\POY.csv"
 
-  -
-    source: ManualInput
-    func: getDataFromCSV
-    frequency: daily
-    cmd: BZ
-    area: FOB韩国
-    unit: 美元/吨
-    field: price
-    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\BZ.csv"
-
-  -
-    source: ManualInput
-    func: getDataFromCSV
-    frequency: daily
-    cmd: SM
-    unit: 元/吨
-    field: price
-    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\SM.csv"
+#  -
+#    source: ManualInput
+#    func: getDataFromCSV
+#    frequency: daily
+#    cmd: BZ
+#    area: FOB韩国
+#    unit: 美元/吨
+#    field: price
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\BZ.csv"
+#
+#  -
+#    source: ManualInput
+#    func: getDataFromCSV
+#    frequency: daily
+#    cmd: SM
+#    unit: 元/吨
+#    field: price
+#    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\SM.csv"
 
   -
     source: ManualInput
