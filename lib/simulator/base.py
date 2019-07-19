@@ -868,6 +868,54 @@ class BacktestSys(object):
                 holdingsObj.update_holdings(h, holdings_new[h].values.flatten())
             return holdingsObj
 
+        elif mode == 6:
+
+            # 根据持仓得到每日的持有几个合约，针对每个合约平均分配资金
+            # 这里对单个合约的持仓有限制，不能超过总的1/6
+            holdings_num = np.abs(np.sign(holdings_df))
+            holdings_num = holdings_num.sum(axis=1)
+            holdings_num[holdings_num < 6] = 6
+            holdings_num[holdings_num == 0] = np.nan
+
+            sub_capital = self.capital / holdings_num
+
+            cls_df = cls_df * np.sign(holdings_df)
+            cls_df[cls_df == 0] = np.nan
+
+            holdings_new = pd.DataFrame()
+            for c in cls_df:
+                holdings_new[c] = sub_capital / cls_df[c]
+
+            holdings_new.fillna(0, inplace=True)
+
+            # if mode == 0:
+            #     holdings_new = holdings_new.round(decimals=0)
+            #     for h in holdingsObj.asset:
+            #         holdingsObj.update_holdings(h, holdings_new[h].values.flatten())
+            #     return holdingsObj
+            #
+            # elif mode == 1:
+
+            # 判断初始持仓是否与前一天的初始持仓相同
+            holdings_yestd = holdings_df.shift(periods=1)
+            holdings_equal = holdings_df == holdings_yestd
+
+            # 统计当天持仓的合约个数
+            # holdings_temp = holdings_df.copy(deep=True)
+            # holdings_temp[holdings_temp == 0] = np.nan
+            # holdings_num = holdings_temp.count(axis=1)
+            holdings_num_yestd = holdings_num.shift(periods=1)
+
+            # 统计当天持仓个数是否与前一天持仓个数相同, 如果num_equal是True，那么持仓个数与前一天的相同
+            num_equal = holdings_num == holdings_num_yestd
+            holdings_equal.loc[~num_equal] = False
+            holdings_new[holdings_equal] = np.nan
+            holdings_new.fillna(method='ffill', inplace=True)
+            holdings_new = holdings_new.round(decimals=0)
+            for h in holdingsObj.asset:
+                holdingsObj.update_holdings(h, holdings_new[h].values.flatten())
+            return holdingsObj
+
 
 
     def getPnlDaily(self, holdingsObj):
