@@ -125,6 +125,28 @@ class HoldingClass(object):
             return
         return inner
 
+    # 定义持仓数据进行叠加
+    def __add__(self, other):
+        if (self.dt != other.dt).any():
+            raise Exception('两个持仓数据的时间不一致')
+        new = HoldingClass(self.dt)
+        new.asset = np.array(list(set(self.asset).union(set(other.asset))))
+        set_inter = set(self.asset).intersection(set(other.asset))
+        for h in set_inter:
+            new_h = getattr(self, h) + getattr(other, h)
+            setattr(new, h, new_h)
+            new.newest_holdings[h] = self.newest_holdings[h] + other.newest_holdings[h]
+        set_1 = set(self.asset).difference(set(other.asset))
+        for h in set_1:
+            setattr(new, h, getattr(self, h))
+            new.newest_holdings[h] = self.newest_holdings[h]
+        set_2 = set(other.asset).difference(set(self.asset))
+        for h in set_2:
+            setattr(new, h, getattr(other, h))
+            new.newest_holdings[h] = other.newest_holdings[h]
+        return new
+
+
     # 增加持仓数据
     @auto_check
     def add_holdings(self, contract, holdings):
@@ -888,17 +910,10 @@ class BacktestSys(object):
 
             holdings_new.fillna(0, inplace=True)
 
-            # if mode == 0:
-            #     holdings_new = holdings_new.round(decimals=0)
-            #     for h in holdingsObj.asset:
-            #         holdingsObj.update_holdings(h, holdings_new[h].values.flatten())
-            #     return holdingsObj
-            #
-            # elif mode == 1:
-
             # 判断初始持仓是否与前一天的初始持仓相同
-            holdings_yestd = holdings_df.shift(periods=1)
-            holdings_equal = holdings_df == holdings_yestd
+            holdings_dir = np.sign(holdings_df)
+            holdings_yestd = holdings_dir.shift(periods=1)
+            holdings_equal = holdings_dir == holdings_yestd
 
             # 统计当天持仓的合约个数
             # holdings_temp = holdings_df.copy(deep=True)
