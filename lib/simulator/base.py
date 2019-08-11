@@ -464,6 +464,17 @@ class TradeRecordByDay(object):
         return self.holdPosition
 
 
+# 数符号相同的个数，用来计算最大连续盈利天数和最大连续亏损天数
+def countSign(x):
+    sign_x = np.sign(x)
+    counter = 0
+    for i in sign_x[::-1]:
+        if i == sign_x[-1]:
+            counter += 1
+        else:
+            break
+    return counter
+
 class BacktestSys(object):
 
     def __init__(self):
@@ -1492,7 +1503,7 @@ class BacktestSys(object):
 
         return trade_record
 
-    def displayResult(self, holdingsObj, saveLocal=True):
+    def displayResult(self, holdingsObj, saveLocal=True, sub_group='year'):
         # saveLocal是逻辑变量，是否将结果存在本地
 
 
@@ -1506,7 +1517,7 @@ class BacktestSys(object):
         leverage = value / self.capital
         trade_record = self.statTrade(holdingsObj)
         print('==============================回测结果================================')
-        self.calcIndicatorByYear(nv, turnover_rate)
+        self.calcIndicatorBySub(nv, turnover_rate, sub_group=sub_group)
 
         trade_pnl = []
         for tr in trade_record:
@@ -1596,7 +1607,9 @@ class BacktestSys(object):
 
         return annual_rtn, annual_std, sharpe, max_drawdown, max_drawdown_start, max_drawdown_end
 
-    def calcIndicatorByYear(self, net_value, turnover_rate, show=True):
+
+
+    def calcIndicatorBySub(self, net_value, turnover_rate, show=True, sub_group='year'):
 
         # 分年度进行统计，这里需要注意，标准差的计算是使用的无偏
 
@@ -1612,6 +1625,14 @@ class BacktestSys(object):
         mdd_start = nv.loc[:mdd_end].idxmax().values[0]
         # rtn_daily = nv.pct_change()  # 这个是复利日收益
         rtn_daily = nv.diff()  # 这个是单利日收益
+        rtn_profit = rtn_daily.copy()
+        rtn_profit[rtn_profit <= 0] = np.nan
+        profit_counter = rtn_profit.expanding().apply(countSign, raw=True)
+        max_profit_counter = profit_counter.max().values[0]
+        rtn_loss = rtn_daily.copy()
+        rtn_loss[rtn_loss >= 0] = np.nan
+        loss_counter = rtn_loss.expanding().apply(countSign, raw=True)
+        max_loss_counter = loss_counter.max().values[0]
 
         total_df = pd.DataFrame({'AnnualRtn': rtn_daily.mean().values[0] * 250.,
                                  'AnnualVol': rtn_daily.std().values[0] * np.sqrt(250.),
@@ -1619,22 +1640,40 @@ class BacktestSys(object):
                                  'MaxDrawdown': mdd,
                                  'MaxDDStart': mdd_start,
                                  'MaxDDEnd': mdd_end,
+                                 'ConProfitDays': max_profit_counter,
+                                 'ConLossDays': max_loss_counter,
                                  'Days': nv.count().values[0],
                                  'NetValueInit': nv['NV'].iloc[0],
                                  'NetValueFinal': nv['NV'].iloc[-1],
                                  'Turnover': turnover_df.mean().values[0]}, index=['total'])
 
-        # ################# 按年度统计得到的结果 #####################
+        # ################# 按更细的周期统计得到的结果 #####################
+        if sub_group == 'year':
+            rtn_daily['sub_group'] = [i.year for i in rtn_daily.index]
+            rtn_profit['sub_group'] = [i.year for i in rtn_profit.index]
+            rtn_loss['sub_group'] = [i.year for i in rtn_loss.index]
+            nv['sub_group'] = [i.year for i in nv.index]
+            turnover_df['sub_group'] = [i.year for i in turnover_df.index]
+        elif sub_group == 'month':
+            rtn_daily['sub_group'] = [i.strftime('%Y-%m') for i in rtn_daily.index]
+            rtn_profit['sub_group'] = [i.strftime('%Y-%m') for i in rtn_profit.index]
+            rtn_loss['sub_group'] = [i.strftime('%Y-%m') for i in rtn_loss.index]
+            nv['sub_group'] = [i.strftime('%Y-%m') for i in nv.index]
+            turnover_df['sub_group'] = [i.strftime('%Y-%m') for i in turnover_df.index]
 
-        rtn_daily['year'] = [i.year for i in rtn_daily.index]
-        grouped = rtn_daily.groupby(by='year')
 
+        grouped = rtn_daily.groupby(by='sub_group')
         rtn_mean = grouped.mean() * 250.
         rtn_std = grouped.std() * np.sqrt(250.)
         sharpe = rtn_mean / rtn_std
 
-        nv['year'] = [i.year for i in nv.index]
-        nv_grouped = nv.groupby(by='year')
+        rp_grouped = rtn_profit.groupby(by='sub_group')
+        profit_days = rp_grouped.apply(func=lambda x: x[['NV']].expanding().apply(countSign, raw=True).max())
+
+        rp_grouped = rtn_loss.groupby(by='sub_group')
+        loss_days = rp_grouped.apply(func=lambda x: x[['NV']].expanding().apply(countSign, raw=True).max())
+
+        nv_grouped = nv.groupby(by='sub_group')
 
         max_drawdown = nv_grouped.apply(func=lambda x: (x[['NV']] - x[['NV']].expanding().max()).min())
         max_drawdown_end = nv_grouped.apply(func=lambda x: (x[['NV']] - x[['NV']].expanding().max()).idxmin())
@@ -1644,8 +1683,8 @@ class BacktestSys(object):
         nv_init = nv_grouped.apply(func=lambda x: x[['NV']].iloc[0])
         nv_final = nv_grouped.apply(func=lambda x: x[['NV']].iloc[-1])
 
-        turnover_df['year'] = [i.year for i in turnover_df.index]
-        turnover_grouped = turnover_df.groupby(by='year')
+
+        turnover_grouped = turnover_df.groupby(by='sub_group')
         turnover_mean = turnover_grouped.mean()
 
         res_df = pd.DataFrame()
@@ -1659,6 +1698,8 @@ class BacktestSys(object):
         days.rename(columns={'NV': 'Days'}, inplace=True)
         nv_init.rename(columns={'NV': 'NetValueInit'}, inplace=True)
         nv_final.rename(columns={'NV': 'NetValueFinal'}, inplace=True)
+        profit_days.rename(columns={'NV': 'ConProfitDays'}, inplace=True)
+        loss_days.rename(columns={'NV': 'ConLossDays'}, inplace=True)
 
         res_df = res_df.join(rtn_mean, how='outer')
         res_df = res_df.join(rtn_std, how='outer')
@@ -1670,10 +1711,12 @@ class BacktestSys(object):
         res_df = res_df.join(days, how='outer')
         res_df = res_df.join(nv_init, how='outer')
         res_df = res_df.join(nv_final, how='outer')
+        res_df = res_df.join(profit_days, how='outer')
+        res_df = res_df.join(loss_days, how='outer')
         res_df = pd.concat((res_df, total_df), sort=False)
 
         pd.set_option('expand_frame_repr', True)
-        pd.set_option('display.max_columns', 10)
+        pd.set_option('display.max_columns', 20)
         pd.set_option('display.width', 200)
 
         if show:
@@ -1681,11 +1724,11 @@ class BacktestSys(object):
 
         return res_df
 
-    def getTotalResult(self, holdingsObj, show=True):
+    def getTotalResult(self, holdingsObj, show=True, sub_group='year'):
 
         pnl, margin_occ, value, turnover_rate = self.getPnlDaily(holdingsObj)
         nv = 1. + np.cumsum(pnl) / self.capital  # 转换成初始净值为1
-        res = self.calcIndicatorByYear(nv, turnover_rate, show=show)
+        res = self.calcIndicatorBySub(nv, turnover_rate, show=show, sub_group=sub_group)
         return res
 
 
@@ -1693,11 +1736,13 @@ if __name__ == '__main__':
 
 
 
-    test1 = DataClass(nm='TA.CZC', dt=np.arange(10))
+    # test1 = DataClass(nm='TA.CZC', dt=np.arange(10))
     a = np.random.randn(10)
-    test1.add_ts_data(obj_name='CLOSE', obj_value=a)
-    test1.rearrange_ts_data(np.arange(20))
-    print(getattr(test1, 'CLOSE'))
+    print(a)
+    countSign(a)
+    # test1.add_ts_data(obj_name='CLOSE', obj_value=a)
+    # test1.rearrange_ts_data(np.arange(20))
+    # print(getattr(test1, 'CLOSE'))
     # test1.check_len()
 
     # ttest1 = TradeRecordByTimes()
