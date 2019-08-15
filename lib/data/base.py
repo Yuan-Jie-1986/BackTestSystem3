@@ -83,8 +83,6 @@ class DataSaving(object):
         else:
             end_time = now_dttm.replace(hour=16, minute=0, second=0, microsecond=0)
 
-        print(start_time)
-        print(end_time)
         if start_time > end_time:
             return
         res = w.wsi(ctr, "open,high,low,close,volume,amt,oi", beginTime=start_time, endTime=end_time,
@@ -99,7 +97,8 @@ class DataSaving(object):
         res_dict = res_df.to_dict(orient='index')
         total = len(res_dict)
         count = 1
-        print(u'抓取%s合约的%s分钟数据' % (ctr, freq))
+        self.logger.info(
+            u'抓取%s合约从%s到%s的%s分钟数据' % (ctr, start_time.strftime('%Y%m%d'), end_time.strftime('%Y%m%d'), freq))
         for di in res_dict:
             process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
             sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))

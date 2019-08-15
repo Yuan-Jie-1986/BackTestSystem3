@@ -922,7 +922,7 @@ class ProfitRate(object):
         total_df = ta.join(px, how='outer')
         total_df = total_df.join(exrate, how='left')
         # if method == 'future':
-        total_df['PX'] = total_df['PX'].shift(periods=1)
+        # total_df['PX'] = total_df['PX'].shift(periods=1)
         total_df.fillna(method='ffill', inplace=True)
         total_df.dropna(inplace=True)
 
@@ -962,6 +962,344 @@ class ProfitRate(object):
         sys.stdout.write('\n')
         sys.stdout.flush()
 
+    def calc_dimo_profit_rate(self, method='future'):
+        '''地膜利润=地膜-LL神华*0.935-600'''
+        queryArgs = {'commodity': '地膜'}
+        projectionField = ['date', 'price']
+        records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        dimo = pd.DataFrame.from_records(records, index='date')
+        dimo.drop(columns=['_id'], inplace=True)
+        dimo.rename(columns={'price': 'DIMO'}, inplace=True)
+
+        if method == 'future':
+            queryArgs = {'wind_code': 'L.DCE'}
+            projectionField = ['date', 'CLOSE']
+            records = self.futures_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            ll = pd.DataFrame.from_records(records, index='date')
+            ll.drop(columns=['_id'], inplace=True)
+            ll.rename(columns={'CLOSE': 'L.DCE'}, inplace=True)
+        elif method == 'spot':
+            queryArgs = {'commodity': 'LL神华煤化工价格'}
+            projectionField = ['date', 'price']
+            records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            ll = pd.DataFrame.from_records(records, index='date')
+            ll.drop(columns=['_id'], inplace=True)
+            ll.rename(columns={'price': 'L.DCE'}, inplace=True)
+        total_df = dimo.join(ll, how='outer')
+        total_df.fillna(method='ffill', inplace=True)
+        total_df.dropna(inplace=True)
+        total_df['dimo_profit'] = total_df['DIMO'] - total_df['L.DCE'] * 0.935 - 600.
+        total_df['dimo_profit_rate'] = total_df['dimo_profit'] / (total_df['L.DCE'] * 0.935 + 600)
+        total_df.drop(columns=['L.DCE', 'DIMO'], inplace=True)
+        total_df['date'] = total_df.index
+        total_df['commodity'] = 'DIMO'
+        total_df['method'] = method
+
+        res_dict = total_df.to_dict(orient='index')
+        print('插入地膜的%s利润率' % method)
+        total = len(res_dict)
+        count = 1
+        for k, v in res_dict.items():
+
+            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+            sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
+            sys.stdout.flush()
+
+            queryArgs = {'commodity': 'DIMO', 'date': v['date'], 'method': method}
+            projectionField = ['dimo_profit', 'dimo_profit_rate']
+            res = self.target_coll.find_one(queryArgs, projectionField)
+            if res and res['dimo_profit'] == v['dimo_profit'] and res['dimo_profit_rate'] == v['dimo_profit_rate']:
+                count += 1
+                continue
+            elif res and (
+                    res['dimo_profit'] != v['dimo_profit'] or res['dimo_profit_rate'] != v['dimo_profit_rate']):
+                self.target_coll.delete_many(queryArgs)
+                v.update({'update_time': datetime.now()})
+                self.target_coll.insert_one(v)
+            else:
+                v.update({'update_time': datetime.now()})
+                self.target_coll.insert_one(v)
+            count += 1
+
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
+    def calc_shuangfang_profit_rate(self, method='future'):
+        '''双防膜利润=双防膜-(LL天津9085*0.6+华北重包*0.4)*0.915-1200'''
+        queryArgs = {'commodity': '双防膜'}
+        projectionField = ['date', 'price']
+        records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        shuangfang = pd.DataFrame.from_records(records, index='date')
+        shuangfang.drop(columns=['_id'], inplace=True)
+        shuangfang.rename(columns={'price': 'SHUANGFANG'}, inplace=True)
+
+        queryArgs = {'commodity': '华北重包'}
+        projectionField = ['date', 'price']
+        records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        zhongbao = pd.DataFrame.from_records(records, index='date')
+        zhongbao.drop(columns=['_id'], inplace=True)
+        zhongbao.rename(columns={'price': 'ZHONGBAO'}, inplace=True)
+
+        if method == 'future':
+            queryArgs = {'wind_code': 'L.DCE'}
+            projectionField = ['date', 'CLOSE']
+            records = self.futures_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            ll = pd.DataFrame.from_records(records, index='date')
+            ll.drop(columns=['_id'], inplace=True)
+            ll.rename(columns={'CLOSE': 'L.DCE'}, inplace=True)
+        elif method == 'spot':
+            queryArgs = {'commodity': '华北融指1线性（天津9085）'}
+            projectionField = ['date', 'price']
+            records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            ll = pd.DataFrame.from_records(records, index='date')
+            ll.drop(columns=['_id'], inplace=True)
+            ll.rename(columns={'price': 'L.DCE'}, inplace=True)
+        total_df = shuangfang.join(ll, how='outer')
+        total_df = total_df.join(zhongbao, how='outer')
+        total_df.fillna(method='ffill', inplace=True)
+        total_df.dropna(inplace=True)
+        total_df['shuangfang_profit'] = total_df['SHUANGFANG'] - (
+                    total_df['L.DCE'] * 0.6 + total_df['ZHONGBAO'] * 0.4) * 0.915 - 1200.
+        total_df['shuangfang_profit_rate'] = total_df['shuangfang_profit'] / ((
+                    total_df['L.DCE'] * 0.6 + total_df['ZHONGBAO'] * 0.4) * 0.915 + 1200.)
+        total_df.drop(columns=['L.DCE', 'SHUANGFANG', 'ZHONGBAO'], inplace=True)
+        total_df['date'] = total_df.index
+        total_df['commodity'] = 'SHUANGFANG'
+        total_df['method'] = method
+
+        res_dict = total_df.to_dict(orient='index')
+        print('插入双防膜的%s利润率' % method)
+        total = len(res_dict)
+        count = 1
+        for k, v in res_dict.items():
+
+            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+            sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
+            sys.stdout.flush()
+
+            queryArgs = {'commodity': 'SHUANGFANG', 'date': v['date'], 'method': method}
+            projectionField = ['shuangfang_profit', 'shuangfang_profit_rate']
+            res = self.target_coll.find_one(queryArgs, projectionField)
+            if res and res['shuangfang_profit'] == v['shuangfang_profit'] and res['shuangfang_profit_rate'] == v[
+                'shuangfang_profit_rate']:
+                count += 1
+                continue
+            elif res and (res['shuangfang_profit'] != v['shuangfang_profit'] or res['shuangfang_profit_rate'] != v[
+                'shuangfang_profit_rate']):
+                self.target_coll.delete_many(queryArgs)
+                v.update({'update_time': datetime.now()})
+                self.target_coll.insert_one(v)
+            else:
+                v.update({'update_time': datetime.now()})
+                self.target_coll.insert_one(v)
+            count += 1
+
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
+    def calc_chanrao_profit_rate(self, method='future'):
+        '''缠绕膜利润=缠绕膜-LL华东-1500'''
+        queryArgs = {'commodity': '缠绕膜'}
+        projectionField = ['date', 'price']
+        records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        chanrao = pd.DataFrame.from_records(records, index='date')
+        chanrao.drop(columns=['_id'], inplace=True)
+        chanrao.rename(columns={'price': 'CHANRAO'}, inplace=True)
+
+        if method == 'future':
+            queryArgs = {'wind_code': 'L.DCE'}
+            projectionField = ['date', 'CLOSE']
+            records = self.futures_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            ll = pd.DataFrame.from_records(records, index='date')
+            ll.drop(columns=['_id'], inplace=True)
+            ll.rename(columns={'CLOSE': 'L.DCE'}, inplace=True)
+        elif method == 'spot':
+            queryArgs = {'commodity': 'LL华东'}
+            projectionField = ['date', 'price']
+            records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            ll = pd.DataFrame.from_records(records, index='date')
+            ll.drop(columns=['_id'], inplace=True)
+            ll.rename(columns={'price': 'L.DCE'}, inplace=True)
+        total_df = chanrao.join(ll, how='outer')
+        total_df.fillna(method='ffill', inplace=True)
+        total_df.dropna(inplace=True)
+        total_df['chanrao_profit'] = total_df['CHANRAO'] - total_df['L.DCE'] - 1500.
+        total_df['chanrao_profit_rate'] = total_df['chanrao_profit'] / (total_df['L.DCE'] + 1500.)
+        total_df.drop(columns=['L.DCE', 'CHANRAO'], inplace=True)
+        total_df['date'] = total_df.index
+        total_df['commodity'] = 'CHANRAO'
+        total_df['method'] = method
+
+        res_dict = total_df.to_dict(orient='index')
+        print('插入缠绕膜的%s利润率' % method)
+        total = len(res_dict)
+        count = 1
+        for k, v in res_dict.items():
+
+            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+            sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
+            sys.stdout.flush()
+
+            queryArgs = {'commodity': 'CHANRAO', 'date': v['date'], 'method': method}
+            projectionField = ['chanrao_profit', 'chanrao_profit_rate']
+            res = self.target_coll.find_one(queryArgs, projectionField)
+            if res and res['chanrao_profit'] == v['chanrao_profit'] and res['chanrao_profit_rate'] == v[
+                'chanrao_profit_rate']:
+                count += 1
+                continue
+            elif res and (res['chanrao_profit'] != v['chanrao_profit'] or res['chanrao_profit_rate'] != v[
+                'chanrao_profit_rate']):
+                self.target_coll.delete_many(queryArgs)
+                v.update({'update_time': datetime.now()})
+                self.target_coll.insert_one(v)
+            else:
+                v.update({'update_time': datetime.now()})
+                self.target_coll.insert_one(v)
+            count += 1
+
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
+    def calc_bopp_profit_rate(self, method='future'):
+        '''BOPP利润=BOPP-PP-1500'''
+        queryArgs = {'commodity': 'BOPP膜'}
+        projectionField = ['date', 'price']
+        records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        bopp = pd.DataFrame.from_records(records, index='date')
+        bopp.drop(columns=['_id'], inplace=True)
+        bopp.rename(columns={'price': 'BOPP'}, inplace=True)
+
+        if method == 'future':
+            queryArgs = {'wind_code': 'PP.DCE'}
+            projectionField = ['date', 'CLOSE']
+            records = self.futures_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            pp = pd.DataFrame.from_records(records, index='date')
+            pp.drop(columns=['_id'], inplace=True)
+            pp.rename(columns={'CLOSE': 'PP.DCE'}, inplace=True)
+        elif method == 'spot':
+            queryArgs = {'commodity': 'PP华东现货价'}
+            projectionField = ['date', 'price']
+            records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            pp = pd.DataFrame.from_records(records, index='date')
+            pp.drop(columns=['_id'], inplace=True)
+            pp.rename(columns={'price': 'PP.DCE'}, inplace=True)
+        total_df = bopp.join(pp, how='outer')
+        total_df.fillna(method='ffill', inplace=True)
+        total_df.dropna(inplace=True)
+        total_df['bopp_profit'] = total_df['BOPP'] - total_df['PP.DCE'] - 1500.
+        total_df['bopp_profit_rate'] = total_df['bopp_profit'] / (total_df['PP.DCE'] + 1500.)
+        total_df.drop(columns=['PP.DCE', 'BOPP'], inplace=True)
+        total_df['date'] = total_df.index
+        total_df['commodity'] = 'BOPP'
+        total_df['method'] = method
+
+        res_dict = total_df.to_dict(orient='index')
+        print('插入BOPP的%s利润率' % method)
+        total = len(res_dict)
+        count = 1
+        for k, v in res_dict.items():
+
+            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+            sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
+            sys.stdout.flush()
+
+            queryArgs = {'commodity': 'BOPP', 'date': v['date'], 'method': method}
+            projectionField = ['bopp_profit', 'bopp_profit_rate']
+            res = self.target_coll.find_one(queryArgs, projectionField)
+            if res and res['bopp_profit'] == v['bopp_profit'] and res['bopp_profit_rate'] == v['bopp_profit_rate']:
+                count += 1
+                continue
+            elif res and (res['bopp_profit'] != v['bopp_profit'] or res['bopp_profit_rate'] != v['bopp_profit_rate']):
+                self.target_coll.delete_many(queryArgs)
+                v.update({'update_time': datetime.now()})
+                self.target_coll.insert_one(v)
+            else:
+                v.update({'update_time': datetime.now()})
+                self.target_coll.insert_one(v)
+            count += 1
+
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
+    def calc_poy_profit_rate(self, method='future'):
+        '''POY利润 = POY-（0.855*PTA+0.335*MEG）-1150'''
+        queryArgs = {'commodity': 'POY150D/48F'}
+        projectionField = ['date', 'price']
+        records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        poy = pd.DataFrame.from_records(records, index='date')
+        poy.drop(columns=['_id'], inplace=True)
+        poy.rename(columns={'price': 'POY'}, inplace=True)
+
+        if method == 'future':
+            queryArgs = {'wind_code': 'TA.CZC'}
+            projectionField = ['date', 'CLOSE']
+            records = self.futures_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            pta = pd.DataFrame.from_records(records, index='date')
+            pta.drop(columns=['_id'], inplace=True)
+            pta.rename(columns={'CLOSE': 'TA.CZC'}, inplace=True)
+
+            queryArgs = {'wind_code': 'EG.DCE'}
+            projectionField = ['date', 'CLOSE']
+            records = self.futures_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            meg = pd.DataFrame.from_records(records, index='date')
+            meg.drop(columns=['_id'], inplace=True)
+            meg.rename(columns={'CLOSE': 'EG.DCE'}, inplace=True)
+
+        elif method == 'spot':
+            queryArgs = {'commodity': 'TA内盘人民币价'}
+            projectionField = ['date', 'price']
+            records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            pta = pd.DataFrame.from_records(records, index='date')
+            pta.drop(columns=['_id'], inplace=True)
+            pta.rename(columns={'price': 'TA.CZC'}, inplace=True)
+
+            queryArgs = {'commodity': 'MEG'}
+            projectionField = ['date', 'price']
+            records = self.spot_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            meg = pd.DataFrame.from_records(records, index='date')
+            meg.drop(columns=['_id'], inplace=True)
+            meg.rename(columns={'price': 'EG.DCE'}, inplace=True)
+
+        total_df = poy.join(pta, how='outer')
+        total_df = total_df.join(meg, how='outer')
+        total_df.fillna(method='ffill', inplace=True)
+        total_df.dropna(inplace=True)
+        total_df['poy_profit'] = total_df['POY'] - (total_df['TA.CZC'] * 0.855 + total_df['EG.DCE'] * 0.335) - 1150.
+        total_df['poy_profit_rate'] = total_df['poy_profit'] / (
+                    total_df['TA.CZC'] * 0.855 + total_df['EG.DCE'] * 0.335 + 1150.)
+        total_df.drop(columns=['EG.DCE', 'POY', 'TA.CZC'], inplace=True)
+        total_df['date'] = total_df.index
+        total_df['commodity'] = 'POY'
+        total_df['method'] = method
+
+        res_dict = total_df.to_dict(orient='index')
+        print('插入POY的%s利润率' % method)
+        total = len(res_dict)
+        count = 1
+        for k, v in res_dict.items():
+
+            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+            sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
+            sys.stdout.flush()
+
+            queryArgs = {'commodity': 'POY', 'date': v['date'], 'method': method}
+            projectionField = ['poy_profit', 'poy_profit_rate']
+            res = self.target_coll.find_one(queryArgs, projectionField)
+            if res and res['poy_profit'] == v['poy_profit'] and res['poy_profit_rate'] == v['poy_profit_rate']:
+                count += 1
+                continue
+            elif res and (res['poy_profit'] != v['poy_profit'] or res['poy_profit_rate'] != v['poy_profit_rate']):
+                self.target_coll.delete_many(queryArgs)
+                v.update({'update_time': datetime.now()})
+                self.target_coll.insert_one(v)
+            else:
+                v.update({'update_time': datetime.now()})
+                self.target_coll.insert_one(v)
+            count += 1
+
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
 a = ProfitRate()
 a.calc_ll_profit_rate(method='future')
 a.calc_ll_profit_rate(method='spot')
@@ -985,4 +1323,13 @@ a.calc_bu_profit_rate(method='future')
 a.calc_bu_profit_rate(method='spot')
 a.calc_pta_profit_rate(method='future')
 a.calc_pta_profit_rate(method='spot')
-
+a.calc_dimo_profit_rate(method='future')
+a.calc_dimo_profit_rate(method='spot')
+a.calc_shuangfang_profit_rate(method='future')
+a.calc_shuangfang_profit_rate(method='spot')
+a.calc_chanrao_profit_rate(method='future')
+a.calc_chanrao_profit_rate(method='spot')
+a.calc_bopp_profit_rate(method='future')
+a.calc_bopp_profit_rate(method='spot')
+a.calc_poy_profit_rate(method='future')
+a.calc_poy_profit_rate(method='spot')

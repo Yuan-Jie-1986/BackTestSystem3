@@ -18,6 +18,8 @@ collection:
   - EDB
   - DerivDB
   - Inventory
+#  - ImExport
+#  - OperationRate
 #  - FuturesOIR
 #  - DateDB
 
@@ -768,3 +770,392 @@ Inventory:
     unit: 百万桶
     type: spot
     cmd: [STKRS-SIN]
+
+ImExport:
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: sm cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\sm_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: sm rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\sm_rmb.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: pp cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\pp_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: pp rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\pp_rmb.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: meg cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\meg_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: meg rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\meg_rmb.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: ma cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\ma_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: ma rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\ma_rmb.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: lpg cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\lpg_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: lpg rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\lpg_rmb.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: ll cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\ll_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: ll rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\ll_rmb.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: ld cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\ld_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: ld rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\ld_rmb.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: bz cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\bz_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: bz rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\bz_rmb.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: zc cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\zc_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: zc rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\zc_rmb.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: YDF cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\YDF_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: YDF rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\YDF_rmb.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: ru cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\ru_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: ru rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\ru_rmb.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: px cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\px_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: px rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\px_rmb.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: PBF cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\PBF_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: PBF rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\PBF_rmb.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: NHGF cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\NHGF_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: NHGF rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\NHGF_rmb.csv"
+
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: MACF cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\MACF_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: MACF rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\MACF_rmb.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: JMBF cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\JMBF_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: JMBF rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\JMBF_rmb.csv"
+
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: hd cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\hd_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: hd rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\hd_rmb.csv"
+
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: bu cfr
+    unit: 美元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\bu_cfr.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: bu rmb
+    unit: 元/吨
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\imexport_db\\bu_rmb.csv"
+
+
+OperationRate:
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: MEG国内开工率
+    unit: '%'
+    field: operation_rate
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\operation_rate\\MEG_DOMESTIC.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: TA国内开工率
+    unit: '%'
+    field: operation_rate
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\operation_rate\\TA_DOMESTIC.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: PE总开工率
+    unit: '%'
+    field: operation_rate
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\operation_rate\\PE_TOTAL.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: PP总开工率
+    unit: '%'
+    field: operation_rate
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\operation_rate\\PP_TOTAL.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: MA全国开工率
+    unit: '%'
+    field: operation_rate
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\operation_rate\\MA_DOMESTIC.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: MA西北开工率
+    unit: '%'
+    field: operation_rate
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\operation_rate\\MA_NORTHWEST.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: PVC整体开工率
+    unit: '%'
+    field: operation_rate
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\operation_rate\\PVC_TOTAL.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: BU总开工率
+    unit: '%'
+    field: operation_rate
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\operation_rate\\BU_TOTAL.csv"
+
+  - source: Wind
+    func: getEDBFromWind
+    frequency: weekly
+    unit: '%'
+    cmd: S5708175
+    edb_name: "高炉开工率:全国"
+
+  - source: Wind
+    func: getEDBFromWind
+    frequency: weekly
+    unit: '%'
+    cmd: S5133408
+    edb_name: "焦炉生产率:国内独立焦化厂(100家):合计"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
