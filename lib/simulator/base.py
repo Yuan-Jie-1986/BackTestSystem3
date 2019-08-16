@@ -790,9 +790,9 @@ class BacktestSys(object):
             high_atr_df = pd.DataFrame()
             low_atr_df = pd.DataFrame()
             for k, v in self.data['bt_price'].items():
-                cls_atr = v.CLOSE * self.unit[v.commodity]
-                high_atr = v.HIGH * self.unit[v.commodity]
-                low_atr = v.LOW * self.unit[v.commodity]
+                cls_atr = v.CLOSE * v.trade_unit
+                high_atr = v.HIGH * v.trade_unit
+                low_atr = v.LOW * v.trade_unit
                 unit_change = getattr(self, self.exchange_func[v.unit_change]).CLOSE
                 cls_atr_df[k] = cls_atr * unit_change
                 high_atr_df[k] = high_atr * unit_change
