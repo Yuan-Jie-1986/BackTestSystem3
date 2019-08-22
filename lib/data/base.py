@@ -286,7 +286,13 @@ class DataSaving(object):
         res_1 = ptn_1.search(cmd).group()
         ptn_2 = re.compile('(?<=\.)\w+')
         res_2 = ptn_2.search(cmd).group()
-        queryArgs = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (res_1, res_2)}}
+
+        # 国内合约名称与国外合约名称的规则不同
+        if res_2 in ['SHF', 'CZC', 'DCE', 'CFE']:
+            queryArgs = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (res_1, res_2)}}
+        else:
+            queryArgs = {'wind_code': {'$regex': '\A%s[FGHJKMNOUVXZ]\d+\.%s\Z' % (res_1, res_2)}}
+
         dt_res = list(coll.find(queryArgs, ['contract_issue_date']).sort('contract_issue_date', pymongo.DESCENDING).limit(1))
         if dt_res:
             dt_last = dt_res[0]['contract_issue_date']
@@ -453,6 +459,59 @@ class DataSaving(object):
             else:
                 self.getFuturePriceFromWind(collection=collection, contract=d, update=0, **kwargs)
 
+    def getWSDFromWind(self, collection, cmd, fields, tradingcalendar, alldaytrade, **kwargs):
+        self.windConn()
+        coll = self.db[collection]
+        if coll.find_one({'wind_code': cmd}):
+            queryArgs = {'wind_code': cmd}
+            projectionField = ['wind_code', 'date']
+            searchRes = coll.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
+            start_date = list(searchRes)[0]['date'] + timedelta(1)
+        else:
+            start_date = datetime.strptime('19900101', '%Y%m%d')
+
+        if alldaytrade:
+            end_date = datetime.today() - timedelta(1)
+        else:
+            end_date = datetime.today()
+
+        if start_date > end_date:
+            return
+
+        if tradingcalendar == 'SHSE':
+            tradingcalendar = ''
+
+        res = w.wsd(cmd, fields=fields, beginTime=start_date, endTime=end_date, TradingCalendar=tradingcalendar)
+        if res.ErrorCode != 0:
+            print(res)
+            raise Exception(u'WIND使用wsd提取数据出现了错误')
+        else:
+            unit_total = len(res.Data[0]) * len(res.Fields)
+            self.logger.info(u'使用WSD抓取%s数据%s到%s的数据，共计%d个' % (cmd, start_date, end_date, unit_total))
+            dict_res = dict(zip(res.Fields, res.Data))
+            df = pd.DataFrame.from_dict(dict_res)
+            df.index = res.Times
+            df.dropna(axis=0, how='all', subset=fields, inplace=True)
+            df['wind_code'] = cmd
+            df2dict = df.to_dict(orient='index')
+
+            total = len(df2dict)
+            count = 1
+            for di in df2dict:
+                process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+                sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+                sys.stdout.flush()
+
+                dtemp = df2dict[di].copy()
+                dtemp['date'] = datetime.strptime(str(di), '%Y-%m-%d')
+                dtemp['update_time'] = datetime.now()
+                dtemp.update(kwargs)
+                coll.insert_one(dtemp)
+                count += 1
+
+            sys.stdout.write('\n')
+            sys.stdout.flush()
+
     def getEDBFromWind(self, collection, edb_code, **kwargs):
         self.windConn()
         coll = self.db[collection]
@@ -533,6 +592,8 @@ class DataSaving(object):
             fields = ['HIGH', 'LOW', 'OPEN', 'CLOSE', 'VOLUME']
         elif type == 'swap' or type == 'spot':
             fields = ['CLOSE']
+        elif type == 'foreign exchange':
+            fields = ['HIGH', 'LOW', 'OPEN', 'CLOSE', 'COUNT']
 
         try:
             res = ek.get_timeseries(cmd, start_date=start_date, end_date=end_date, fields=fields)
@@ -541,7 +602,7 @@ class DataSaving(object):
             print(e)
             return
 
-        if 'COUNT' in res.columns:
+        if 'COUNT' in res.columns and 'COUNT' not in fields:
             self.logger.info(u'抓取%s%s到%s数据失败，行情交易未结束，请稍后重试' % (cmd, start_date, end_date))
             return
 

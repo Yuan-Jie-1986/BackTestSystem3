@@ -14,10 +14,10 @@ collection:
 #  - Information
 #  - FuturesMinMD
 #  - FuturesMD
-  - SpotMD
+#  - SpotMD
   - EDB
-  - DerivDB
-  - Inventory
+#  - DerivDB
+#  - Inventory
 #  - ImExport
 #  - OperationRate
 #  - FuturesOIR
@@ -83,6 +83,7 @@ FuturesMD:
       - CU.SHF
       - AL.SHF
       - AG.SHF
+      - AU.SHF
       - FU.SHF
       - IF.CFE
       - IC.CFE
@@ -93,14 +94,14 @@ FuturesMD:
     frequency: daily
     func: getFutureGroupPriceFromWind
     alldaytrade: 1
-    cmd: [B.IPE, LB.CME, NG.NYM]
+    cmd: [B.IPE, LB.CME, NG.NYM, GC.CMX, SI.CMX]
 
   -
     source: ThomsonReuters
     func: getPriceFromRT
     frequency: daily
     type: futures
-    cmd: [LCOc1, LCOc2, CLc1, CLc2, RBc1, RBc2, HOc1, HOc2, LGOc1, LGOc2, NGc1, NGc2]
+    cmd: [LCOc1, LCOc2, CLc1, CLc2, RBc1, RBc2, HOc1, HOc2, LGOc1, LGOc2, NGc1, NGc2, GCc1, SIc1, STFc1, JRUc1, SLPFc1]
 
   - source: ThomsonReuters
     func: getPriceFromRT
@@ -427,6 +428,14 @@ EDB:
     unit: 美分/公斤
     frequency: Daily
 
+  -
+    func: getEDBFromWind
+    source: WIND
+    cmd: M0067858
+    edb_name: "即期汇率:100日元兑人民币"
+    unit: null
+    frequency: Daily
+
   - func: getEDBFromWind
     source: WIND
     cmd: G0522656
@@ -440,6 +449,20 @@ EDB:
     edb_name: "中间价:人民币兑泰铢"
     unit: null
     frequency: Daily
+
+  - source: WIND
+    func: getWSDFromWind
+    frequency: daily
+    cmd: [USDCNH.FX]
+    alldaytrade: 1
+    tradingcalendar: HKEX
+    fields: [OPEN, CLOSE, HIGH, LOW]
+
+  - source: ThomsonReuters
+    func: getPriceFromRT
+    frequency: daily
+    type: foreign exchange
+    cmd: [CNY=, CNH=]
 
 DateDB:
   -
@@ -482,10 +505,13 @@ Information:
       - CU.SHF
       - AL.SHF
       - AG.SHF
+      - AU.SHF
       - FU.SHF
       - IF.CFE
       - IH.CFE
       - IC.CFE
+      - GC.CMX
+      - SI.CMX
 
 ICEPrice:
   -
@@ -1142,19 +1168,6 @@ OperationRate:
     unit: '%'
     cmd: S5133408
     edb_name: "焦炉生产率:国内独立焦化厂(100家):合计"
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
