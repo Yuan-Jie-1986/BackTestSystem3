@@ -13,9 +13,9 @@ log_path: "E:\\CBNB\\BackTestSystem\\data_saving.log"
 collection:
 #  - Information
 #  - FuturesMinMD
-#  - FuturesMD
+  - FuturesMD
 #  - SpotMD
-  - EDB
+#  - EDB
 #  - DerivDB
 #  - Inventory
 #  - ImExport
@@ -28,27 +28,12 @@ FuturesMinMD:
     source: WIND
     frequency: 1min
     func: getFuturesMinPriceFromWind
-    night_trade: 1
-    night_end: "23:00"
-    cmd: [RB.SHF, I.DCE, J.DCE, JM.DCE, L.DCE, PP.DCE, BU.SHF, V.DCE, HC.SHF,
-          RB2005.SHF, RB1910.SHF, RB2001.SHF, I2005.DCE, I1909.DCE, I2001.DCE,
-          J2005.DCE, J1909.DCE, J2001.DCE, JM2005.DCE, JM1909.DCE, JM2001.DCE,
-          L2005.DCE, L1909.DCE, L2001.DCE, PP2005.DCE, PP1909.DCE, PP2001.DCE,
-          BU2006.SHF, BU1912.SHF, V2005.DCE, V1909.DCE, V2001.DCE,
-          HC2005.SHF, HC1909.SHF, HC2001.SHF]
-
-  -
-    source: WIND
-    frequency: 1min
-    func: getFuturesMinPriceFromWind
-    night_trade: 1
-    night_end: "23:30"
-    cmd: [TA.CZC, MA.CZC, ZC.CZC, FG.CZC,
-          TA005.CZC, TA909.CZC, TA001.CZC,
-          MA005.CZC, MA909.CZC, MA001.CZC,
-          ZC005.CZC, ZC909.CZC, ZC001.CZC,
-          FG005.CZC, FG909.CZC, FG001.CZC,]
-
+    cmd: [CU.SHF, AL.SHF, ZN.SHF, NI.SHF, SN.SHF, PB.SHF, AU.SHF, AG.SHF, RB.SHF, I.DCE, J.DCE, JM.DCE, L.DCE, PP.DCE,
+          BU.SHF, V.DCE, HC.SHF, RB2005.SHF, RB1910.SHF, RB2001.SHF, I2005.DCE, I1909.DCE, I2001.DCE, J2005.DCE,
+          J1909.DCE, J2001.DCE, JM2005.DCE, JM1909.DCE, JM2001.DCE, L2005.DCE, L1909.DCE, L2001.DCE, PP2005.DCE,
+          PP1909.DCE, PP2001.DCE, BU2006.SHF, BU1912.SHF, V2005.DCE, V1909.DCE, V2001.DCE, HC2005.SHF, HC1909.SHF,
+          HC2001.SHF, TA.CZC, MA.CZC, ZC.CZC, FG.CZC, TA005.CZC, TA909.CZC, TA001.CZC, MA005.CZC, MA909.CZC, MA001.CZC,
+          ZC005.CZC, ZC909.CZC, ZC001.CZC, FG005.CZC, FG909.CZC, FG001.CZC,]
 
 FuturesMD:
   -
@@ -88,27 +73,30 @@ FuturesMD:
       - IF.CFE
       - IC.CFE
       - IH.CFE
+      - ZN.SHF
+      - PB.SHF
+      - SN.SHF
 
   -
     source: WIND
     frequency: daily
     func: getFutureGroupPriceFromWind
     alldaytrade: 1
-    cmd: [B.IPE, LB.CME, NG.NYM, GC.CMX, SI.CMX]
+    cmd: [B.IPE, LB.CME, NG.NYM, GC.CMX, SI.CMX, CA.LME, AH.LME, ZS.LME, PB.LME, NI.LME, SN.LME]
 
-  -
-    source: ThomsonReuters
-    func: getPriceFromRT
-    frequency: daily
-    type: futures
-    cmd: [LCOc1, LCOc2, CLc1, CLc2, RBc1, RBc2, HOc1, HOc2, LGOc1, LGOc2, NGc1, NGc2, GCc1, SIc1, STFc1, JRUc1, SLPFc1]
-
-  - source: ThomsonReuters
-    func: getPriceFromRT
-    frequency: daily
-    type: swap
-    cmd: [FO380SGSWMc1, FO180SGSWMc1, EBOBNWEMc1, EBOBNWEMc2, NACFRJPSWMc1, NACFRJPSWMc2, GO10SGSWMc1, GO10SGSWMc2,
-    MOG92SGMc1, MOG92SGMc2]
+#  -
+#    source: ThomsonReuters
+#    func: getPriceFromRT
+#    frequency: daily
+#    type: futures
+#    cmd: [LCOc1, LCOc2, CLc1, CLc2, RBc1, RBc2, HOc1, HOc2, LGOc1, LGOc2, NGc1, NGc2, GCc1, SIc1, STFc1, JRUc1, SLPFc1]
+#
+#  - source: ThomsonReuters
+#    func: getPriceFromRT
+#    frequency: daily
+#    type: swap
+#    cmd: [FO380SGSWMc1, FO180SGSWMc1, EBOBNWEMc1, EBOBNWEMc2, NACFRJPSWMc1, NACFRJPSWMc2, GO10SGSWMc1, GO10SGSWMc2,
+#    MOG92SGMc1, MOG92SGMc2]
 
 SpotMD:
 
@@ -512,6 +500,18 @@ Information:
       - IC.CFE
       - GC.CMX
       - SI.CMX
+      - ZN.SHF
+      - PB.SHF
+      - SN.SHF
+      - CA.LME
+      - AH.LME
+      - ZS.LME
+      - PB.LME
+      - NI.LME
+      - SN.LME
+
+
+
 
 ICEPrice:
   -

@@ -46,7 +46,7 @@ class DataSaving(object):
             w.start()
         return None
 
-    def getFuturesMinPriceFromWind(self, collection, ctr, frequency, night_trade, night_end, **kwargs):
+    def getFuturesMinPriceFromWind(self, collection, ctr, frequency, **kwargs):
         self.windConn()
         coll = self.db[collection]
         coll_info = self.db['Information']
@@ -70,13 +70,6 @@ class DataSaving(object):
         else:
             start_time = res[0]['date_time'] + timedelta(minutes=1)
 
-        if night_trade:
-            end_hour, end_minute = night_end.split(':')
-            end_minute = str(int(end_minute) + 1)
-        else:
-            end_hour = '15'
-            end_minute = '1'
-
         now_dttm = datetime.now()
         if now_dttm.hour < 16:
             end_time = now_dttm.replace(day=now_dttm.day - 1, hour=16, minute=0, second=0, microsecond=0)
@@ -85,13 +78,14 @@ class DataSaving(object):
 
         if start_time > end_time:
             return
-        res = w.wsi(ctr, "open,high,low,close,volume,amt,oi", beginTime=start_time, endTime=end_time,
-                    periodstart="08:30:00", periodend="%s:%s:00" % (end_hour, end_minute))
+        res = w.wsi(ctr, "open,high,low,close,volume,amt,oi", beginTime=start_time, endTime=end_time)
+
         if res.ErrorCode == -40520007:
             print(ctr, res.Data)
             return
         res_df = pd.DataFrame.from_dict(dict(zip(res.Fields, res.Data)))
         res_df.index = res.Times
+        res_df.dropna(how='all', inplace=True)
         res_df['wind_code'] = ctr
         res_df['frequency'] = frequency
         res_dict = res_df.to_dict(orient='index')
@@ -326,6 +320,7 @@ class DataSaving(object):
     def getFuturePriceFromWind(self, collection, contract, alldaytrade, update=1, **kwargs):
         self.windConn()
         coll = self.db['Information']
+        finished_coll = self.db['FinishedContracts']
         queryArgs = {'wind_code': contract}
         projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
         searchRes = coll.find_one(queryArgs, projectionField)
@@ -367,8 +362,13 @@ class DataSaving(object):
                 start_date = searchRes['contract_issue_date']
                 if datetime.now().hour < 16 or alldaytrade:
                     end_date = min(datetime.today() - timedelta(1), searchRes['last_trade_date'])
+                    if datetime.today() - timedelta(1) > searchRes['last_trade_date']:
+                        finished_dict = searchRes.copy()
                 else:
                     end_date = min(datetime.today(), searchRes['last_trade_date'])
+                    if datetime.today() > searchRes['last_trade_date']:
+                        finished_dict = searchRes.copy()
+
             elif update == 1:
                 # 更新新的数据
                 # 在数据库中查找到已有的数据的最后日期，然后+1作为起始日期
@@ -378,6 +378,10 @@ class DataSaving(object):
                 mres = coll.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
                 dt_l = list(mres)[0]['date']
                 if dt_l >= searchRes['last_trade_date']:
+                    finished_dict = searchRes.copy()
+                    finished_dict.update({'update_time': datetime.now()})
+                    finished_coll.insert_one(finished_dict)
+                    self.logger.info('%s合约进入到FinishedContract数据库' % contract)
                     return
                 elif dt_l < searchRes['last_trade_date']:
                     # 对于合约变化的SB品种，如"TA005.CZC"，需要选择更近的时间
@@ -421,9 +425,6 @@ class DataSaving(object):
                 dtemp['date'] = datetime.strptime(str(di), '%Y-%m-%d')
                 dtemp['update_time'] = datetime.now()
                 dtemp.update(kwargs)
-                # print kwargs
-                # print dtemp
-                # print len(dtemp)
 
                 coll.insert_one(dtemp)
                 count += 1
@@ -431,9 +432,17 @@ class DataSaving(object):
             sys.stdout.write('\n')
             sys.stdout.flush()
 
+            if 'finished_dict' in locals():
+                finished_dict.update({'update_time': datetime.now()})
+                finished_coll.insert_one(finished_dict)
+                self.logger.info('%s合约进入到FinishedContract数据库' % contract)
+
     def getFutureGroupPriceFromWind(self, collection, cmd, **kwargs):
 
+        # 为了提高从wind抓取数据的效率，将已经抓取好的合约名存到数据库中。这样就不用总是去检查是不是有新数据需要抓取。
+
         coll = self.db['Information']
+        finished_coll = self.db['FinishedContracts']
 
         # 在Information表中查找与该商品有关的所有合约
         # 只针对国内的商品合约
@@ -445,15 +454,19 @@ class DataSaving(object):
         cmd2 = ptn2.search(cmd).group()
 
         queryArgs = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (cmd1, cmd2)}}
-        projectionField = ['wind_code']
+        projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
         searchRes = coll.find(queryArgs, projectionField)
+        finishedRes = finished_coll.find(queryArgs, projectionField)
+        contract_list = [(s['wind_code'], s['contract_issue_date'], s['last_trade_date']) for s in searchRes]
+        finished_list = [(s['wind_code'], s['contract_issue_date'], s['last_trade_date']) for s in finishedRes]
+        unfinished_list = list(set(contract_list).difference(set(finished_list)))
+        unfinished_list = [s[0] for s in unfinished_list]
 
-        contract_list = [s['wind_code'] for s in searchRes]
         # 增加主力合约代码
-        contract_list.append(cmd)
+        unfinished_list.append(cmd)
 
         coll = self.db[collection]
-        for d in contract_list:
+        for d in unfinished_list:
             if coll.find_one({'wind_code': d}):
                 self.getFuturePriceFromWind(collection=collection, contract=d, update=1, **kwargs)
             else:
@@ -482,7 +495,11 @@ class DataSaving(object):
             tradingcalendar = ''
 
         res = w.wsd(cmd, fields=fields, beginTime=start_date, endTime=end_date, TradingCalendar=tradingcalendar)
-        if res.ErrorCode != 0:
+        if res.ErrorCode == -40520007 and res.Fields == ['OUTMESSAGE']:
+            print(res)
+            print('%s没有新的数据' % cmd)
+            return
+        elif res.ErrorCode != 0:
             print(res)
             raise Exception(u'WIND使用wsd提取数据出现了错误')
         else:
