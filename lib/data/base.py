@@ -9,6 +9,7 @@ import sys
 import re
 import eikon as ek
 import logging
+import os
 
 
 class DataSaving(object):
@@ -108,24 +109,236 @@ class DataSaving(object):
         sys.stdout.write('\n')
         sys.stdout.flush()
 
+    def getFuturesPriceFromTB(self, collection, ctr, path, frequency):
+        coll = self.db[collection]
+        file_path = os.path.join(path, '%s_%s.csv' % (ctr, frequency))
+        df = pd.read_csv(file_path, index_col=0, parse_dates=True)
+        queryArgs = {'tb_code': ctr, 'frequency': frequency}
+        if frequency == '1min':
+            date_label = 'date_time'
+        else:
+            date_label = 'date'
+        projectionField = [date_label]
+        records = list(coll.find(queryArgs, projectionField).sort(date_label, pymongo.DESCENDING).limit(1))
+
+        if records:
+            dt_last = records[0][date_label]
+            df = df[df.index > dt_last]
+            if df.empty:
+                return
+
+        df[date_label] = df.index
+        df['tb_code'] = ctr
+        df['frequency'] = frequency
+
+        df_dict = df.to_dict(orient='index')
+
+        self.logger.info(
+            '抓取%s从%s到%s的数据' % (ctr, df.index[0].strftime('%Y%m%d %H:%M:%S'), df.index[-1].strftime('%Y%m%d %H:%M:%S')))
+
+        total = len(df_dict)
+        count = 1
+        for d in df_dict:
+            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+            sys.stdout.flush()
+
+            dtemp = df_dict[d].copy()
+            dtemp.update({'update_time': datetime.now()})
+            coll.insert_one(dtemp)
+
+            count += 1
+
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+
     def getFuturesOIRFromWind(self, collection, cmd, **kwargs):
         self.windConn()
         coll = self.db[collection]
         coll_info = self.db['Information']
+        coll_finished = self.db['FinishedContracts']
+
         ptn1 = re.compile('[A-Z]+(?=\.)')
         ptn2 = re.compile('(?<=\.)[A-Z]+')
         cmd1 = ptn1.search(cmd).group()
         cmd2 = ptn2.search(cmd).group()
 
+        # Information表里的所有已有的合约
         queryArgs = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (cmd1, cmd2)}}
         projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
-        res = coll_info.find(queryArgs, projectionField).sort([('contract_issue_date', pymongo.ASCENDING),
-                                                               ('last_trade_date', pymongo.ASCENDING)])
-        res = list(res)
-        total = len(res)
+        info_list = coll_info.find(queryArgs, projectionField)
+
+        # FinishedContracts里有的关于多头、空头持仓和成交量排序的所有合约
+        queryArgs_long = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (cmd1, cmd2)}, 'collection': collection,
+                          'type': 'long'}
+        projectionField_long = ['wind_code', 'contract_issue_date', 'last_trade_date']
+        inDB_list_long = coll_finished.find(queryArgs_long, projectionField_long)
+
+        queryArgs_short = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (cmd1, cmd2)}, 'collection': collection,
+                           'type': 'short'}
+        projectionField_short = ['wind_code', 'contract_issue_date', 'last_trade_date']
+        inDB_list_short = coll_finished.find(queryArgs_short, projectionField_short)
+
+        queryArgs_volume = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (cmd1, cmd2)}, 'collection': collection,
+                            'type': 'volume'}
+        projectionField_volume = ['wind_code', 'contract_issue_date', 'last_trade_date']
+        inDB_list_volume = coll_finished.find(queryArgs_volume, projectionField_volume)
+
+        # 检查是否有新的合约上市或者是列出第一次导入该品种的数据时的合约
+        info_list = [(c['wind_code'], c['contract_issue_date'], c['last_trade_date']) for c in info_list]
+
+        inDB_list_long = [(c['wind_code'], c['contract_issue_date'], c['last_trade_date']) for c in inDB_list_long]
+        new_list_long = list(set(info_list).difference(set(inDB_list_long)))
+        new_list_long.sort(key=lambda x: x[-1], reverse=False)
+
+        inDB_list_short = [(c['wind_code'], c['contract_issue_date'], c['last_trade_date']) for c in inDB_list_short]
+        new_list_short = list(set(info_list).difference(set(inDB_list_short)))
+        new_list_short.sort(key=lambda x: x[-1], reverse=False)
+
+
+        total = len(new_list_long)
+        count = 1
+        print('针对%s品种的新合约或从未导入的合约进行持仓信息抓取' % cmd)
+        for r in new_list_long:
+            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+            sys.stdout.flush()
+            wind_code = r[0]
+            issue_date = r[1]
+            last_trade_date = r[2]
+
+            queryArgs = {'wind_code': wind_code}
+            projectionField = ['wind_code', 'date']
+            dt_end_res = coll.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
+            dt_start_res = coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING).limit(1)
+            dt_end_res = list(dt_end_res)
+            dt_start_res = list(dt_start_res)
+
+            # 如果数据库里没有持仓数据
+
+            if not dt_end_res and not dt_start_res:
+                end_dt = min(last_trade_date, datetime.today())
+                res = w.wset(tablename='openinterestranking', startdate=issue_date.strftime('%Y-%m-%d'),
+                             enddate=end_dt.strftime('%Y-%m-%d'), varity=cmd, wind_code=wind_code,
+                             order_by='long', ranks='all',
+                             field='date,ranks,member_name,long_position,long_position_increase')
+
+                if res.ErrorCode == -40522017:
+                    raise Exception(u'数据提取量超限')
+
+                # 如果没有数据，而且已经过了最后交易日
+                if not res.Data and last_trade_date < datetime.today():
+                    empty_dict = {'wind_code': wind_code, 'contract_issue_date': issue_date,
+                                  'last_trade_date': last_trade_date, 'collection': collection,
+                                  'status': 'Null', 'update_time': datetime.now()}
+                    coll_finished.insert_one(empty_dict)
+                    count += 1
+                    continue
+                # 如果没有数据，而且没有过最后交易日
+                elif not res.Data and last_trade_date >= datetime.today():
+                    info_dict = {'wind_code': wind_code, 'contract_issue_date': issue_date,
+                                 'last_trade_date': last_trade_date, 'collection': collection,
+                                 'status': 'Unfinished', 'update_time': datetime.now()}
+                    coll_finished.insert_one(info_dict)
+                    count += 1
+                    continue
+                # 如果有数据
+                else:
+                    res_dict = dict(zip(res.Fields, res.Data))
+                    df = pd.DataFrame.from_dict(res_dict)
+                    df['wind_code'] = wind_code
+                    df['commodity'] = cmd
+                    df['type'] = 'long'
+                    df2dict = df.to_dict(orient='index')
+                    for di in df2dict:
+                        dtemp = df2dict[di].copy()
+                        dtemp['update_time'] = datetime.now()
+                        dtemp.update(kwargs)
+                        coll.insert_one(dtemp)
+                    # 如果当前日期已经过了最后交易日
+                    if last_trade_date < datetime.today():
+                        info_dict = {'wind_code': wind_code, 'contract_issue_date': issue_date,
+                                     'last_trade_date': last_trade_date, 'collection': collection,
+                                     'status': 'Finished', 'update_time': datetime.now()}
+                        coll_finished.insert_one(info_dict)
+                        count += 1
+                    # 如果没有过最后交易日
+                    else:
+                        info_dict = {'wind_code': wind_code, 'contract_issue_date': issue_date,
+                                     'last_trade_date': last_trade_date, 'collection': collection,
+                                     'status': 'Unfinished', 'update_time': datetime.now()}
+                        coll_finished.insert_one(info_dict)
+                        count += 1
+
+            # 如果数据库里有数据，而且最后的数据没有过最后交易日
+            elif dt_end_res[0]['date'] < last_trade_date:
+                dt_start = dt_end_res[0]['date'] + timedelta(1)
+                dt_end = min(last_trade_date, datetime.today())
+                res = w.wset(tablename='openinterestranking', startdate=dt_start.strftime('%Y-%m-%d'),
+                             enddate=dt_end.strftime('%Y-%m-%d'), varity=cmd, wind_code=wind_code, order_by='long',
+                             ranks='all', field='date,ranks,member_name,long_position,long_position_increase')
+
+                if res.ErrorCode == -40522017:
+                    raise Exception(u'数据提取量超限')
+
+
+                if not res.Data and last_trade_date < datetime.today():
+                    info_dict = {'wind_code': wind_code, 'contract_issue_date': issue_date,
+                                 'last_trade_date': last_trade_date, 'collection': collection,
+                                 'status': 'Finished', 'update_time': datetime.now()}
+                    coll_finished.insert_one(info_dict)
+                    count += 1
+                elif not res.Data and last_trade_date >= datetime.today():
+                    info_dict = {'wind_code': wind_code, 'contract_issue_date': issue_date,
+                                 'last_trade_date': last_trade_date, 'collection': collection,
+                                 'status': 'Unfinished', 'update_time': datetime.now()}
+                    coll_finished.insert_one(info_dict)
+                    count += 1
+                else:
+
+                    res_dict = dict(zip(res.Fields, res.Data))
+                    df = pd.DataFrame.from_dict(res_dict)
+                    df['wind_code'] = wind_code
+                    df['commodity'] = cmd
+                    df['type'] = 'long'
+                    df2dict = df.to_dict(orient='index')
+
+                    for di in df2dict:
+                        dtemp = df2dict[di].copy()
+                        dtemp['update_time'] = datetime.now()
+                        dtemp.update(kwargs)
+                        coll.insert_one(dtemp)
+                    if last_trade_date < datetime.today():
+                        info_dict = {'wind_code': wind_code, 'contract_issue_date': issue_date,
+                                     'last_trade_date': last_trade_date, 'collection': collection,
+                                     'status': 'Finished', 'update_time': datetime.now()}
+                        coll_finished.insert_one(info_dict)
+                        count += 1
+                    else:
+                        info_dict = {'wind_code': wind_code, 'contract_issue_date': issue_date,
+                                     'last_trade_date': last_trade_date, 'collection': collection,
+                                     'status': 'Unfinished', 'update_time': datetime.now()}
+                        coll_finished.insert_one(info_dict)
+                        count += 1
+
+            else:
+                count += 1
+
+
+
+        queryArgs_2 = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (cmd1, cmd2)}, 'collection': collection,
+                       'status': 'Unfinished'}
+        projectionField_2 = ['wind_code', 'contract_issue_date', 'last_trade_date']
+        unfinished_list = coll_finished.find(queryArgs_2, projectionField_2)
+
+        print(unfinished_list)
+
+        total = len(unfinished_list)
         count = 1
 
-        for r in res:
+
+
+        for r in unfinished_list:
             process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
             sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
             sys.stdout.flush()
@@ -139,138 +352,111 @@ class DataSaving(object):
             dt_start_res = coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING).limit(1)
             dt_end_res = list(dt_end_res)
             dt_start_res = list(dt_start_res)
+
+
+            # 如果数据库里没有数据
             if not dt_end_res and not dt_start_res:
-                res = w.wset(tablename='futureoir', startdate=issue_date.strftime('%Y-%m-%d'),
-                             enddate=last_trade_date.strftime('%Y-%m-%d'), varity=cmd, wind_code=wind_code,
+                dt_end = min(last_trade_date, datetime.today())
+                res = w.wset(tablename='openinterestranking', startdate=issue_date.strftime('%Y-%m-%d'),
+                             enddate=dt_end.strftime('%Y-%m-%d'), varity=cmd, wind_code=wind_code,
                              order_by='long', ranks='all',
-                             field='date,ranks,member_name,long_position,long_position_increase,long_potion_rate')
+                             field='date,ranks,member_name,long_position,long_position_increase')
+
+
                 if res.ErrorCode == -40522017:
                     raise Exception(u'数据提取量超限')
 
-                if not res.Data:
+                if not res.Data and last_trade_date < datetime.today():
+                    filter_con = {'wind_code': wind_code, 'contract_issue_date': issue_date,
+                                  'last_trade_date': last_trade_date, 'collection': collection,
+                                  'status': 'Unfinished'}
+                    empty_dict = {'wind_code': wind_code, 'contract_issue_date': issue_date,
+                                  'last_trade_date': last_trade_date, 'collection': collection,
+                                  'status': 'Null', 'update_time': datetime.now()}
+                    coll_finished.update_one(filter_con, empty_dict)
                     count += 1
-                    continue
-                res_dict = dict(zip(res.Fields, res.Data))
-                df = pd.DataFrame.from_dict(res_dict)
-                df['wind_code'] = wind_code
-                df['commodity'] = cmd
-                df['long/short'] = 'long'
-                df2dict = df.to_dict(orient='index')
-                for di in df2dict:
-                    dtemp = df2dict[di].copy()
-                    dtemp['update_time'] = datetime.now()
-                    dtemp.update(kwargs)
-                    coll.insert_one(dtemp)
+
+                elif not res.Data and last_trade_date >= datetime.today():
+                    count += 1
+
+                else:
+                    res_dict = dict(zip(res.Fields, res.Data))
+                    df = pd.DataFrame.from_dict(res_dict)
+                    df['wind_code'] = wind_code
+                    df['commodity'] = cmd
+                    df['type'] = 'long'
+                    df2dict = df.to_dict(orient='index')
+                    for di in df2dict:
+                        dtemp = df2dict[di].copy()
+                        dtemp['update_time'] = datetime.now()
+                        dtemp.update(kwargs)
+                        coll.insert_one(dtemp)
+                    if last_trade_date < datetime.today():
+                        filter_con = {'wind_code': wind_code, 'contract_issue_date': issue_date,
+                                      'last_trade_date': last_trade_date, 'collection': collection,
+                                      'status': 'Unfinished'}
+                        empty_dict = {'wind_code': wind_code, 'contract_issue_date': issue_date,
+                                      'last_trade_date': last_trade_date, 'collection': collection,
+                                      'status': 'Null', 'update_time': datetime.now()}
+                        coll_finished.update_one(filter_con, empty_dict)
+                    count += 1
+
+
             elif dt_end_res[0]['date'] < last_trade_date:
                 dt_start = dt_end_res[0]['date'] + timedelta(1)
-                res = w.wset(tablename='futureoir', startdate=dt_start.strftime('%Y-%m-%d'),
-                             enddate=last_trade_date.strftime('%Y-%m-%d'), varity=cmd,
+                dt_end = min(last_trade_date, datetime.today())
+                res = w.wset(tablename='openinterestranking', startdate=dt_start.strftime('%Y-%m-%d'),
+                             enddate=dt_end.strftime('%Y-%m-%d'), varity=cmd,
                              wind_code=wind_code, order_by='long', ranks='all',
-                             field='date,ranks,member_name,long_position,long_position_increase,long_potion_rate')
+                             field='date,ranks,member_name,long_position,long_position_increase')
 
                 if res.ErrorCode == -40522017:
                     raise Exception(u'数据提取量超限')
 
                 if not res.Data:
-                    count += 1
-                    continue
+                    print(wind_code, dt_start)
+                    raise Exception('请检查%s为何没有新的持仓数据' % wind_code)
+
                 res_dict = dict(zip(res.Fields, res.Data))
                 df = pd.DataFrame.from_dict(res_dict)
                 df['wind_code'] = wind_code
                 df['commodity'] = cmd
-                df['long/short'] = 'long'
+                df['type'] = 'long'
                 df2dict = df.to_dict(orient='index')
                 for di in df2dict:
                     dtemp = df2dict[di].copy()
                     dtemp['update_time'] = datetime.now()
                     dtemp.update(kwargs)
                     coll.insert_one(dtemp)
-            else:
+                if last_trade_date < datetime.today():
+                    filter_con = {'wind_code': wind_code, 'contract_issue_date': issue_date,
+                                  'last_trade_date': last_trade_date, 'collection': collection,
+                                  'status': 'Unfinished'}
+                    empty_dict = {'wind_code': wind_code, 'contract_issue_date': issue_date,
+                                  'last_trade_date': last_trade_date, 'collection': collection,
+                                  'status': 'Finished', 'update_time': datetime.now()}
+                    coll_finished.update_one(filter_con, empty_dict)
                 count += 1
-                continue
 
-            count += 1
+
+            elif dt_end_res[0]['date'] == last_trade_date:
+                filter_con = {'wind_code': wind_code, 'contract_issue_date': issue_date,
+                              'last_trade_date': last_trade_date, 'collection': collection,
+                              'status': 'Unfinished'}
+                empty_dict = {'wind_code': wind_code, 'contract_issue_date': issue_date,
+                              'last_trade_date': last_trade_date, 'collection': collection,
+                              'status': 'Finished', 'update_time': datetime.now()}
+                coll_finished.update_one(filter_con, empty_dict)
+                count += 1
+
+            else:
+                print(dt_end_res)
+                print(last_trade_date)
+                raise Exception('请检查出现了另外的情况')
 
         sys.stdout.write('\n')
         sys.stdout.flush()
 
-
-        # cmd_exist = coll.find_one({'commodity': cmd})
-        # if cmd_exist:
-        #     dt_res = coll.find({'commodity': cmd}, ['date']).sort('date', pymongo.DESCENDING).limit(1)
-        #     dt_latest = list(dt_res)[0]['date']
-        #     dt_start = dt_latest + timedelta(1)
-        #     dt_end = datetime.today()
-        #     if dt_start > dt_end:
-        #         return
-        #     queryArgs = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (cmd1, cmd2)},
-        #                  'contract_issue_date': {'$lte': dt_end},
-        #                  'last_trade_date': {'gte': dt_start}}
-        #     projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
-        #     res = coll_info.find(queryArgs, projectionField).sort([('contract_issue_date', pymongo.ASCENDING),
-        #                                                            ('last_trade_date', pymongo.ASCENDING)])
-        #     df_res = pd.DataFrame.from_records(res)
-        #     df_res.drop(columns='_id', inplace=True)
-        #
-        # else:
-        #     queryArgs = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (cmd1, cmd2)}}
-        #     projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
-        #     res = coll_info.find(queryArgs, projectionField).sort([('contract_issue_date', pymongo.ASCENDING),
-        #                                                            ('last_trade_date', pymongo.ASCENDING)])
-        #     df_res = pd.DataFrame.from_records(res)
-        #     df_res.drop(columns='_id', inplace=True)
-        #     dt_start = df_res['contract_issue_date'].iloc[0]
-        #     print dt_start
-        #     dt_end = datetime.today()
-        #     # dt_start = datetime(2009, 10, 1)
-        #     # dt_end = dt_start + timedelta(10)
-        #
-        #
-        #
-        #
-        # total = len(df_res['wind_code'].values)
-        # count = 1
-        # for ct in df_res['wind_code'].values:
-        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-        #     sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-        #     sys.stdout.flush()
-        #
-        #     res = w.wset(tablename='futureoir', startdate=dt_start, enddate=dt_end, varity=cmd, wind_code=ct,
-        #                  order_by='long', ranks='all',
-        #                  field='date,ranks,member_name,long_position,long_position_increase,long_potion_rate')
-        #     if not res.Data:
-        #         continue
-        #     res_dict = dict(zip(res.Fields, res.Data))
-        #     df = pd.DataFrame.from_dict(res_dict)
-        #     df['wind_code'] = ct
-        #     df['commodity'] = cmd
-        #     df['long/short'] = 'long'
-        #     df2dict = df.to_dict(orient='index')
-        #     for di in df2dict:
-        #         dtemp = df2dict[di].copy()
-        #         dtemp['update_time'] = datetime.now()
-        #         dtemp.update(kwargs)
-        #         coll.insert_one(dtemp)
-        #
-        #     count += 1
-        # sys.stdout.write('\n')
-        # sys.stdout.flush()
-
-
-
-
-        # res = w.wset(tablename='futureoir', startdate='2010-05-01', enddate='2011-04-05', varity='L.DCE',
-        #              wind_code='L1105.DCE', order_by='long', ranks='all', field='date,ranks,member_name,long_position')#,long_position_increase,long_potion_rate')
-        # res_tuple = dict(zip(res.Fields, res.Data))
-        # print res_tuple
-        # df = pd.DataFrame.from_dict(res_tuple)
-        # df['wind_code'] = 'L1905.DCE'
-        # df['commodity'] = 'L.DCE'
-        # df['long/short'] = 'long'
-        # print df
-        # df2dict = df.to_dict(orient='index')
-        # for d in df2dict:
-        #     print df2dict[d]
 
     def getFuturesInfoFromWind(self, collection, cmd, **kwargs):
         # 主要用于抓取wind里各合约的信息
@@ -282,10 +468,18 @@ class DataSaving(object):
         res_2 = ptn_2.search(cmd).group()
 
         # 国内合约名称与国外合约名称的规则不同
-        if res_2 in ['SHF', 'CZC', 'DCE', 'CFE']:
+        # 如果品种属于中国的期货品种
+        if res_2 in ['SHF', 'CZC', 'DCE', 'CFE', 'INE']:
             queryArgs = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (res_1, res_2)}}
+        # 如果品种是COMEX、NYMEX、ICE的合约，通常是品种+月份字母+年份数字+E(表示电子盘)+.交易所代码
+        elif res_2 in ['CMX', 'NYM', 'IPE']:
+            queryArgs = {'wind_code': {'$regex': '\A%s[FGHJKMNOUVXZ]\d+E\.%s\Z' % (res_1, res_2)}}
+        # 如果品种是LME的合约
+        elif res_2 in ['LME']:
+            return
         else:
-            queryArgs = {'wind_code': {'$regex': '\A%s[FGHJKMNOUVXZ]\d+\.%s\Z' % (res_1, res_2)}}
+            print(cmd)
+            raise Exception('请检查合约的名称，出现了新的交易所合约')
 
         dt_res = list(coll.find(queryArgs, ['contract_issue_date']).sort('contract_issue_date', pymongo.DESCENDING).limit(1))
         if dt_res:
@@ -379,7 +573,7 @@ class DataSaving(object):
                 dt_l = list(mres)[0]['date']
                 if dt_l >= searchRes['last_trade_date']:
                     finished_dict = searchRes.copy()
-                    finished_dict.update({'update_time': datetime.now()})
+                    finished_dict.update({'collection': collection, 'update_time': datetime.now()})
                     finished_coll.insert_one(finished_dict)
                     self.logger.info('%s合约进入到FinishedContract数据库' % contract)
                     return
@@ -433,7 +627,7 @@ class DataSaving(object):
             sys.stdout.flush()
 
             if 'finished_dict' in locals():
-                finished_dict.update({'update_time': datetime.now()})
+                finished_dict.update({'collection': collection, 'update_time': datetime.now()})
                 finished_coll.insert_one(finished_dict)
                 self.logger.info('%s合约进入到FinishedContract数据库' % contract)
 
@@ -453,10 +647,29 @@ class DataSaving(object):
         ptn2 = re.compile('(?<=\.)[A-Z]+')
         cmd2 = ptn2.search(cmd).group()
 
-        queryArgs = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (cmd1, cmd2)}}
+        # 如果品种属于中国的期货品种
+        if cmd2 in ['SHF', 'CZC', 'DCE', 'CFE', 'INE']:
+            queryArgs = {'wind_code': {'$regex': '\A%s\d+\.%s\Z' % (cmd1, cmd2)}}
+        # 如果品种是COMEX、NYMEX、ICE的合约，通常是品种+月份字母+年份数字+E(表示电子盘)+.交易所代码
+        # elif cmd2 in ['CMX', 'NYM', 'IPE']:
+        #     queryArgs = {'wind_code': {'$regex': '\A%s[FGHJKMNQUVXZ]\d+E\.%s\Z' % (cmd1, cmd2)}}
+        # 如果品种是LME的合约
+        # elif cmd2 in ['LME']:
+        elif cmd2 in ['LME', 'CMX', 'NYM', 'IPE']:
+            queryArgs = {'wind_code': cmd}
+        else:
+            print(cmd)
+            raise Exception('请检查合约的名称，出现了新的交易所合约')
+
         projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
         searchRes = coll.find(queryArgs, projectionField)
-        finishedRes = finished_coll.find(queryArgs, projectionField)
+
+
+        queryArgs_1 = queryArgs.copy()
+        queryArgs_1.update({'collection': collection})
+        projectionField_1 = ['wind_code', 'contract_issue_date', 'last_trade_date']
+        finishedRes = finished_coll.find(queryArgs_1, projectionField_1)
+
         contract_list = [(s['wind_code'], s['contract_issue_date'], s['last_trade_date']) for s in searchRes]
         finished_list = [(s['wind_code'], s['contract_issue_date'], s['last_trade_date']) for s in finishedRes]
         unfinished_list = list(set(contract_list).difference(set(finished_list)))
@@ -464,7 +677,7 @@ class DataSaving(object):
 
         # 增加主力合约代码
         unfinished_list.append(cmd)
-
+        print(unfinished_list)
         coll = self.db[collection]
         for d in unfinished_list:
             if coll.find_one({'wind_code': d}):
@@ -903,6 +1116,6 @@ if __name__ == '__main__':
 
     # a.getDateSeries(collection='DateDB', cmd='SHSE', frequecy='Daily')
     # a.getFuturesOIRFromWind(collection='FuturesOIR', cmd='L.DCE')
-    a.getFuturesMinPriceFromWind(collection='FuturesMinMD', ctr='RB1905.SHF', frequency='10min')
+    # a.getFuturesMinPriceFromWind(collection='FuturesMinMD', ctr='RB1905.SHF', frequency='10min')
 
 
