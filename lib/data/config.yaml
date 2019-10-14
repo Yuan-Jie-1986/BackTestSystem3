@@ -13,8 +13,8 @@ log_path: "E:\\CBNB\\BackTestSystem\\data_saving.log"
 collection:
 #  - Information
 #  - FuturesMinMD
-  - FuturesMD
-#  - SpotMD
+#  - FuturesMD
+  - SpotMD
   - EDB
   - Inventory
 #  - ImExport
@@ -36,60 +36,60 @@ FuturesMinMD:
     frequency: 1min
     func: getFuturesMinPriceFromWind
     cmd: [CU.SHF, AL.SHF, ZN.SHF, NI.SHF, SN.SHF, PB.SHF, AU.SHF, AG.SHF, RB.SHF, I.DCE, J.DCE, JM.DCE, L.DCE, PP.DCE,
-          BU.SHF, V.DCE, HC.SHF, RB2005.SHF, RB1910.SHF, RB2001.SHF, I2005.DCE, I1909.DCE, I2001.DCE, J2005.DCE,
-          J1909.DCE, J2001.DCE, JM2005.DCE, JM1909.DCE, JM2001.DCE, L2005.DCE, L1909.DCE, L2001.DCE, PP2005.DCE,
-          PP1909.DCE, PP2001.DCE, BU2006.SHF, BU1912.SHF, V2005.DCE, V1909.DCE, V2001.DCE, HC2005.SHF, HC1909.SHF,
-          HC2001.SHF, TA.CZC, MA.CZC, ZC.CZC, FG.CZC, TA005.CZC, TA909.CZC, TA001.CZC, MA005.CZC, MA909.CZC, MA001.CZC,
-          ZC005.CZC, ZC909.CZC, ZC001.CZC, FG005.CZC, FG909.CZC, FG001.CZC, SC.INE]
+          BU.SHF, V.DCE, HC.SHF, RB2005.SHF, RB1910.SHF, RB2001.SHF, I2005.DCE, I2009.DCE, I2001.DCE, J2005.DCE,
+          J2009.DCE, J2001.DCE, JM2005.DCE, JM2009.DCE, JM2001.DCE, L2005.DCE, L2009.DCE, L2001.DCE, PP2005.DCE,
+          PP2009.DCE, PP2001.DCE, BU2006.SHF, BU1912.SHF, V2005.DCE, V2009.DCE, V2001.DCE, HC2005.SHF, HC1910.SHF,
+          HC2001.SHF, TA.CZC, MA.CZC, ZC.CZC, FG.CZC, TA005.CZC, TA909.CZC, TA001.CZC, MA005.CZC, MA009.CZC, MA001.CZC,
+          ZC005.CZC, ZC009.CZC, ZC001.CZC, FG005.CZC, FG009.CZC, FG001.CZC, SC.INE]
 
 FuturesMD:
-#  -
-#    source: WIND
-#    frequency: daily
-#    func: getFutureGroupPriceFromWind
-#    alldaytrade: 0
-#    cmd:
-#      - L.DCE
-#      - PP.DCE
-#      - I.DCE
-#      - J.DCE
-#      - JM.DCE
-#      - M.DCE
-#      - C.DCE
-#      - RB.SHF
-#      - BU.SHF
-#      - RU.SHF
-#      - NI.SHF
-#      - HC.SHF
-#      - TA.CZC
-#      - MA.CZC
-#      - AP.CZC
-#      - ZC.CZC
-#      - SR.CZC
-#      - RM.CZC
-#      - SC.INE
-#      - EG.DCE
-#      - SP.SHF
-#      - FG.CZC
-#      - V.DCE
-#      - CU.SHF
-#      - AL.SHF
-#      - AG.SHF
-#      - AU.SHF
-#      - FU.SHF
-#      - IF.CFE
-#      - IC.CFE
-#      - IH.CFE
-#      - ZN.SHF
-#      - PB.SHF
-#      - SN.SHF
-#
-#  -
-#    source: WIND
-#    frequency: daily
-#    func: getFutureGroupPriceFromWind
-#    alldaytrade: 1
-#    cmd: [B.IPE, NG.NYM, GC.CMX, SI.CMX, CA.LME, AH.LME, ZS.LME, PB.LME, NI.LME, SN.LME]  # LB.CME
+  -
+    source: WIND
+    frequency: daily
+    func: getFutureGroupPriceFromWind
+    alldaytrade: 0
+    cmd:
+      - L.DCE
+      - PP.DCE
+      - I.DCE
+      - J.DCE
+      - JM.DCE
+      - M.DCE
+      - C.DCE
+      - RB.SHF
+      - BU.SHF
+      - RU.SHF
+      - NI.SHF
+      - HC.SHF
+      - TA.CZC
+      - MA.CZC
+      - AP.CZC
+      - ZC.CZC
+      - SR.CZC
+      - RM.CZC
+      - SC.INE
+      - EG.DCE
+      - SP.SHF
+      - FG.CZC
+      - V.DCE
+      - CU.SHF
+      - AL.SHF
+      - AG.SHF
+      - AU.SHF
+      - FU.SHF
+      - IF.CFE
+      - IC.CFE
+      - IH.CFE
+      - ZN.SHF
+      - PB.SHF
+      - SN.SHF
+
+  -
+    source: WIND
+    frequency: daily
+    func: getFutureGroupPriceFromWind
+    alldaytrade: 1
+    cmd: [B.IPE, NG.NYM, GC.CMX, SI.CMX, CA.LME, AH.LME, ZS.LME, PB.LME, NI.LME, SN.LME]  # LB.CME
 
   -
     source: ThomsonReuters
@@ -187,7 +187,7 @@ SpotMD:
     frequency: daily
     unit: 美元/吨
     type: spot
-    cmd: [FO380-SIN]
+    cmd: [FO380-SIN, PRO-TYO, BUT-TYO]
 
   -
     source: ManualInput
@@ -796,6 +796,38 @@ Inventory:
     unit: 百万桶
     type: spot
     cmd: [STKRS-SIN]
+
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: BZ
+    area: 华东码头库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\BZ.csv"
+
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: SM
+    area: 华东码头库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\SM.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: PX
+    area: 社会库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\PX.csv"
 
 ImExport:
   - source: ManualInput

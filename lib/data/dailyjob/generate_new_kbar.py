@@ -53,6 +53,7 @@ for c in cmd_list:
     res = min_coll.find(queryArgs, projectionFields).sort('date_time', pymongo.ASCENDING)
     df_res = pd.DataFrame.from_records(res, index='date_time')
     df_res.drop(columns='_id', inplace=True)
+    df_res.dropna(how='all', subset=['open', 'high', 'low', 'close'], inplace=True)
     dt = []
     for i in df_res.index:
         if i.hour >= 8:

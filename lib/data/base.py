@@ -72,7 +72,9 @@ class DataSaving(object):
             start_time = res[0]['date_time'] + timedelta(minutes=1)
 
         now_dttm = datetime.now()
-        if now_dttm.hour < 16:
+        if 6 < now_dttm.hour < 16:
+            end_time = now_dttm.replace(hour=8, minute=0, second=0, microsecond=0)
+        elif now_dttm.hour < 6:
             end_time = now_dttm.replace(day=now_dttm.day - 1, hour=16, minute=0, second=0, microsecond=0)
         else:
             end_time = now_dttm.replace(hour=16, minute=0, second=0, microsecond=0)
@@ -80,13 +82,13 @@ class DataSaving(object):
         if start_time > end_time:
             return
         res = w.wsi(ctr, "open,high,low,close,volume,amt,oi", beginTime=start_time, endTime=end_time)
-
-        if res.ErrorCode == -40520007:
+        if res.ErrorCode == -40520007 or res.ErrorCode == -40520017:
             print(ctr, res.Data)
             return
         res_df = pd.DataFrame.from_dict(dict(zip(res.Fields, res.Data)))
         res_df.index = res.Times
-        res_df.dropna(how='all', inplace=True)
+        res_df.dropna(how='all', subset=['open', 'high', 'low', 'close'], inplace=True)
+
         res_df['wind_code'] = ctr
         res_df['frequency'] = frequency
         res_dict = res_df.to_dict(orient='index')
