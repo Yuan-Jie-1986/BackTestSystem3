@@ -22,6 +22,35 @@ collection:
 #  - FuturesOIR
 #  - DateDB
 #  - DerivDB
+#  - TempDB
+
+
+TempDB:
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: ave_corr
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\bg_db\\宏观共振指标.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: monthly
+    cmd: macro_inv
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\bg_db\\宏观方向指标.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: monthly
+    cmd: chg_macro_inv
+    field: price
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\bg_db\\宏观方向指标变化.csv"
+
 
 FuturesMinMD:
 
@@ -828,6 +857,16 @@ Inventory:
     unit: 万吨
     field: inventory
     path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\PX.csv"
+
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: POY
+    area: 聚酯库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\POY.csv"
 
 ImExport:
   - source: ManualInput

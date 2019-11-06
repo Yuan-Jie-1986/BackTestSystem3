@@ -890,7 +890,7 @@ class DataSaving(object):
         start_date = df.index[0]
 
         unit_total = len(df.values.flatten())
-        self.logger.info('抓取%s%s之后的数据，共计%d个' % (cmd, start_date, unit_total))
+        # self.logger.info('抓取%s%s之后的数据，共计%d个' % (cmd, start_date, unit_total))
 
         # 关于编码的问题，如果是中文，需要将unicode转成str
         df.rename(columns={cmd: field}, inplace=True)
@@ -899,38 +899,75 @@ class DataSaving(object):
         for k, v in kwargs.items():
             df[k] = v
 
-        res_dict = df.to_dict(orient='index')
-        total = len(res_dict)
-        count = 1
-        print('抓取%s数据' % cmd)
-        for di in res_dict:
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
+        queryArgs = {'commodity': cmd, 'date': {'$gte': start_date}}
+        queryArgs.update(kwargs)
+        projectionFields = ['date', field]
+        exist_res = coll.find(queryArgs, projectionFields).sort('date', pymongo.ASCENDING)
+        exist_df = pd.DataFrame.from_records(exist_res, index='date')
+        exist_df.drop(columns='_id', inplace=True)
 
-            exist_res = coll.find({'commodity': cmd, 'date': di}, ['date', field])
-            exist_res = list(exist_res)
-            if not exist_res:
-                dtemp = res_dict[di].copy()
-                dtemp['date'] = di
-                dtemp['update_time'] = datetime.now()
-                coll.insert_one(dtemp)
-            elif field not in exist_res[0] or exist_res[0][field] != res_dict[di][field]:
-                coll.delete_many({'commodity': cmd, 'date': di})
-                dtemp = res_dict[di].copy()
-                dtemp['date'] = di
-                dtemp['update_time'] = datetime.now()
-                coll.insert_one(dtemp)
-            else:
-                count += 1
+        sub_res = exist_df - df[[field]]
+        isEqual = sub_res == 0
+        diff_res = sub_res.loc[~isEqual.values.flatten()]
+        count = 0
+        for i in diff_res.index:
+            if i not in df.index:
+                # 该数值不在csv中
                 continue
+            elif i in exist_df.index:
+                # 该数值在csv和数据库中都存在，但是不一样
+                self.logger.info('%s在%s这一天的%s数据与数据库中已经存在的数据不一致' % (cmd, i, field))
+                self.logger.info('数据库存在的数据：%s, csv存在的数据：%s' % (exist_df.loc[i, field], df.loc[i, field]))
+                coll.delete_many({'commodity': cmd, 'date': i})
+                res_dict = df.loc[[i]].to_dict(orient='index')
+                res_dict[i]['date'] = i
+                res_dict[i]['update_time'] = datetime.now()
+                coll.insert_one(res_dict[i])
+                count += 1
+            else:
+                # 该数值是新增的数据库中没有的数据
+                self.logger.info('%s在%s这一天的%s数据进入数据库' % (cmd, i, field))
+                res_dict = df.loc[[i]].to_dict(orient='index')
+                res_dict[i]['date'] = i
+                res_dict[i]['update_time'] = datetime.now()
+                coll.insert_one(res_dict[i])
+                count += 1
+        self.logger.info('%s更新了%d条%s数据' % (cmd, count, field))
 
 
 
-            count += 1
-
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        # res_dict = df.to_dict(orient='index')
+        # total = len(res_dict)
+        # count = 1
+        # print('抓取%s数据' % cmd)
+        # for di in res_dict:
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     exist_res = coll.find({'commodity': cmd, 'date': di}, ['date', field])
+        #     exist_res = list(exist_res)
+        #     if not exist_res:
+        #         dtemp = res_dict[di].copy()
+        #         dtemp['date'] = di
+        #         dtemp['update_time'] = datetime.now()
+        #         coll.insert_one(dtemp)
+        #     elif field not in exist_res[0] or exist_res[0][field] != res_dict[di][field]:
+        #         coll.delete_many({'commodity': cmd, 'date': di})
+        #         dtemp = res_dict[di].copy()
+        #         dtemp['date'] = di
+        #         dtemp['update_time'] = datetime.now()
+        #         coll.insert_one(dtemp)
+        #     else:
+        #         count += 1
+        #         continue
+        #
+        #
+        #
+        #     count += 1
+        #
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
 
     def getDateSeries(self, collection, cmd, **kwargs):
         """从WIND导入交易日期时间序列"""
