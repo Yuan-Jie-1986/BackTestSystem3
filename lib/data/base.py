@@ -889,7 +889,7 @@ class DataSaving(object):
 
         start_date = df.index[0]
 
-        unit_total = len(df.values.flatten())
+        # unit_total = len(df.values.flatten())
         # self.logger.info('抓取%s%s之后的数据，共计%d个' % (cmd, start_date, unit_total))
 
         # 关于编码的问题，如果是中文，需要将unicode转成str
@@ -918,7 +918,9 @@ class DataSaving(object):
                 # 该数值在csv和数据库中都存在，但是不一样
                 self.logger.info('%s在%s这一天的%s数据与数据库中已经存在的数据不一致' % (cmd, i, field))
                 self.logger.info('数据库存在的数据：%s, csv存在的数据：%s' % (exist_df.loc[i, field], df.loc[i, field]))
-                coll.delete_many({'commodity': cmd, 'date': i})
+                queryArgs = {'commodity': cmd, 'date': i}
+                queryArgs.update(kwargs)
+                coll.delete_many(queryArgs)
                 res_dict = df.loc[[i]].to_dict(orient='index')
                 res_dict[i]['date'] = i
                 res_dict[i]['update_time'] = datetime.now()

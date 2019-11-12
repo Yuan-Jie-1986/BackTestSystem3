@@ -10,11 +10,27 @@ import pymongo
 import pandas as pd
 from datetime import datetime
 import sys
+import logging
 
 
 class ProfitRate(object):
 
     def __init__(self):
+
+        self.logger = logging.getLogger()
+        self.logger.setLevel(logging.INFO)
+
+        formatter = logging.Formatter(fmt='%(asctime)s %(name)s %(filename)s %(funcName)s %(levelname)s %(message)s',
+                                      datefmt='%Y-%m-%d %H:%M:%S %a')
+
+        fh = logging.FileHandler('E:\\CBNB\\BackTestSystem3\\data_saving.log')
+        ch = logging.StreamHandler()
+        fh.setFormatter(formatter)
+        ch.setFormatter(formatter)
+        self.logger.addHandler(fh)
+        self.logger.addHandler(ch)
+
+
         self.conn = pymongo.MongoClient(host='192.168.1.172', port=27017)
         self.db = self.conn['CBNB']
         self.db.authenticate(name='yuanjie', password='yuanjie')
@@ -79,33 +95,71 @@ class ProfitRate(object):
         total_df['commodity'] = 'L.DCE'
         total_df['method'] = method
 
-        res_dict = total_df.to_dict(orient='index')
-        print('插入LL的%s利润率' % method)
-        total = len(res_dict)
-        count = 1
-        for k, v in res_dict.items():
+        start_date = total_df.index[0]
 
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
+        queryArgs = {'commodity': 'L.DCE', 'date': {'$gte': start_date}, 'method': method}
+        projectionField = ['date', 'commodity', 'upper_profit', 'upper_profit_rate', 'method']
+        res = self.target_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        exists_df = pd.DataFrame.from_records(res, index='date')
+        exists_df.drop(columns='_id', inplace=True)
+        sub_res = total_df[['upper_profit', 'upper_profit_rate']] - exists_df[['upper_profit', 'upper_profit_rate']]
+        isZero = (sub_res == 0).all(axis=1).values
+        diff_res = sub_res.loc[~isZero]
 
-            queryArgs = {'commodity': 'L.DCE', 'date': v['date'], 'method': method}
-            projectionField = ['upper_profit', 'upper_profit_rate']
-            res = self.target_coll.find_one(queryArgs, projectionField)
-            if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
-                count += 1
-                continue
-            elif res and (res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
-                self.target_coll.delete_many(queryArgs)
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            else:
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            count += 1
+        self.logger.info('插入LL的%s利润率' % method)
+        if diff_res.empty:
+            self.logger.info('LL的%s利润率没有新的数据' % method)
+        else:
+            count = 0
+            for i in diff_res.index:
+                if i not in total_df.index:
+                    continue
+                elif i in exists_df.index:
+                    # 说明新计算的数据与已存在的数据不一致
+                    self.logger.info('LL的%s利润率在%s这一天的数据与数据库存在的数据不一致' % (method, i))
+                    self.logger.info(
+                        '数据库之前存在的数据: upper_profit %f, upper_profit_rate %f, 现在修改为新值： upper_profit %f, upper_profit_rate %f' % (
+                            exists_df.loc[i, 'upper_profit'], exists_df.loc[i, 'upper_profit_rate'],
+                            total_df.loc[i, 'upper_profit'], total_df.loc[i, 'upper_profit_rate']))
+                    self.target_coll.delete_many({'commodity': 'L.DCE', 'date': i, 'method': method})
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+                else:
+                    # 该数据是新增的数据
+                    self.logger.info('LL的%s利润率在%s这一天的数据进入数据库' % (method, i))
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+            self.logger.info('LL更新了%d条%s利润数据' % (count, method))
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        # for k, v in res_dict.items():
+        #
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     queryArgs = {'commodity': 'L.DCE', 'date': v['date'], 'method': method}
+        #     projectionField = ['upper_profit', 'upper_profit_rate']
+        #     res = self.target_coll.find_one(queryArgs, projectionField)
+        #     if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
+        #         count += 1
+        #         continue
+        #     elif res and (res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
+        #         self.target_coll.delete_many(queryArgs)
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     else:
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     count += 1
+        #
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
 
     def calc_pp_profit_rate(self, method='future'):
         """PP的利润公式：PP - 3 * MA - 800"""
@@ -150,34 +204,76 @@ class ProfitRate(object):
         total_df['commodity'] = 'PP.DCE'
         total_df['method'] = method
 
-        res_dict = total_df.to_dict(orient='index')
-        print('插入PP的%s利润率' % method)
-        total = len(res_dict)
-        count = 1
-        for k, v in res_dict.items():
+        start_date = total_df.index[0]
 
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
+        queryArgs = {'commodity': 'PP.DCE', 'date': {'$gte': start_date}, 'method': method}
+        projectionField = ['date', 'commodity', 'upper_profit', 'upper_profit_rate', 'method']
+        res = self.target_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        exists_df = pd.DataFrame.from_records(res, index='date')
+        exists_df.drop(columns='_id', inplace=True)
+        sub_res = total_df[['upper_profit', 'upper_profit_rate']] - exists_df[['upper_profit', 'upper_profit_rate']]
+        isZero = (sub_res == 0).all(axis=1).values
+        diff_res = sub_res.loc[~isZero]
 
-            queryArgs = {'commodity': 'PP.DCE', 'date': v['date'], 'method': method}
-            projectionField = ['upper_profit', 'upper_profit_rate']
-            res = self.target_coll.find_one(queryArgs, projectionField)
-            if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
-                count += 1
-                continue
-            elif res and (
-                    res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
-                self.target_coll.delete_many(queryArgs)
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            else:
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            count += 1
+        self.logger.info('插入PP的%s利润率' % method)
+        if diff_res.empty:
+            self.logger.info('PP的%s利润率没有新的数据' % method)
+        else:
+            count = 0
+            for i in diff_res.index:
+                if i not in total_df.index:
+                    continue
+                elif i in exists_df.index:
+                    # 说明新计算的数据与已存在的数据不一致
+                    self.logger.info('PP的%s利润率在%s这一天的数据与数据库存在的数据不一致' % (method, i))
+                    self.logger.info(
+                        '数据库之前存在的数据: upper_profit %f, upper_profit_rate %f, 现在修改为新值： upper_profit %f, upper_profit_rate %f' % (
+                            exists_df.loc[i, 'upper_profit'], exists_df.loc[i, 'upper_profit_rate'],
+                            total_df.loc[i, 'upper_profit'], total_df.loc[i, 'upper_profit_rate']))
+                    self.target_coll.delete_many({'commodity': 'PP.DCE', 'date': i, 'method': method})
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+                else:
+                    # 该数据是新增的数据
+                    self.logger.info('PP的%s利润率在%s这一天的数据进入数据库' % (method, i))
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+            self.logger.info('PP更新了%d条%s利润数据' % (count, method))
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        # res_dict = total_df.to_dict(orient='index')
+        # print('插入PP的%s利润率' % method)
+        # total = len(res_dict)
+        # count = 1
+        # for k, v in res_dict.items():
+        #
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     queryArgs = {'commodity': 'PP.DCE', 'date': v['date'], 'method': method}
+        #     projectionField = ['upper_profit', 'upper_profit_rate']
+        #     res = self.target_coll.find_one(queryArgs, projectionField)
+        #     if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
+        #         count += 1
+        #         continue
+        #     elif res and (
+        #             res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
+        #         self.target_coll.delete_many(queryArgs)
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     else:
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     count += 1
+        #
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
 
     def calc_ma_profit_rate(self, method='future'):
         """MA的利润公式：MA-(ZC+20)*1.95-600"""
@@ -222,33 +318,75 @@ class ProfitRate(object):
         total_df['commodity'] = 'MA.CZC'
         total_df['method'] = method
 
-        res_dict = total_df.to_dict(orient='index')
-        print('插入MA的%s利润率' % method)
-        total = len(res_dict)
-        count = 1
-        for k, v in res_dict.items():
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
+        start_date = total_df.index[0]
 
-            queryArgs = {'commodity': 'MA.CZC', 'date': v['date'], 'method': method}
-            projectionField = ['upper_profit', 'upper_profit_rate']
-            res = self.target_coll.find_one(queryArgs, projectionField)
-            if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
-                count += 1
-                continue
-            elif res and (
-                    res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
-                self.target_coll.delete_many(queryArgs)
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            else:
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            count += 1
+        queryArgs = {'commodity': 'MA.CZC', 'date': {'$gte': start_date}, 'method': method}
+        projectionField = ['date', 'commodity', 'upper_profit', 'upper_profit_rate', 'method']
+        res = self.target_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        exists_df = pd.DataFrame.from_records(res, index='date')
+        exists_df.drop(columns='_id', inplace=True)
+        sub_res = total_df[['upper_profit', 'upper_profit_rate']] - exists_df[['upper_profit', 'upper_profit_rate']]
+        isZero = (sub_res == 0).all(axis=1).values
+        diff_res = sub_res.loc[~isZero]
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        self.logger.info('插入MA的%s利润率' % method)
+        if diff_res.empty:
+            self.logger.info('MA的%s利润率没有新的数据' % method)
+        else:
+            count = 0
+            for i in diff_res.index:
+                if i not in total_df.index:
+                    continue
+                elif i in exists_df.index:
+                    # 说明新计算的数据与已存在的数据不一致
+                    self.logger.info('MA的%s利润率在%s这一天的数据与数据库存在的数据不一致' % (method, i))
+                    self.logger.info(
+                        '数据库之前存在的数据: upper_profit %f, upper_profit_rate %f, 现在修改为新值： upper_profit %f, upper_profit_rate %f' % (
+                            exists_df.loc[i, 'upper_profit'], exists_df.loc[i, 'upper_profit_rate'],
+                            total_df.loc[i, 'upper_profit'], total_df.loc[i, 'upper_profit_rate']))
+                    self.target_coll.delete_many({'commodity': 'MA.CZC', 'date': i, 'method': method})
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+                else:
+                    # 该数据是新增的数据
+                    self.logger.info('MA的%s利润率在%s这一天的数据进入数据库' % (method, i))
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+            self.logger.info('MA更新了%d条%s利润数据' % (count, method))
+
+        # res_dict = total_df.to_dict(orient='index')
+        # print('插入MA的%s利润率' % method)
+        # total = len(res_dict)
+        # count = 1
+        # for k, v in res_dict.items():
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     queryArgs = {'commodity': 'MA.CZC', 'date': v['date'], 'method': method}
+        #     projectionField = ['upper_profit', 'upper_profit_rate']
+        #     res = self.target_coll.find_one(queryArgs, projectionField)
+        #     if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
+        #         count += 1
+        #         continue
+        #     elif res and (
+        #             res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
+        #         self.target_coll.delete_many(queryArgs)
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     else:
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     count += 1
+        #
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
 
     def calc_meg_profit_rate(self, method='future'):
         """MEG的利润公式：MEG-4*ZC-2400"""
@@ -293,33 +431,75 @@ class ProfitRate(object):
         total_df['commodity'] = 'EG.DCE'
         total_df['method'] = method
 
-        res_dict = total_df.to_dict(orient='index')
-        print('插入MEG的%s利润率' % method)
-        total = len(res_dict)
-        count = 1
-        for k, v in res_dict.items():
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
+        start_date = total_df.index[0]
 
-            queryArgs = {'commodity': 'EG.DCE', 'date': v['date'], 'method': method}
-            projectionField = ['upper_profit', 'upper_profit_rate']
-            res = self.target_coll.find_one(queryArgs, projectionField)
-            if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
-                count += 1
-                continue
-            elif res and (
-                    res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
-                self.target_coll.delete_many(queryArgs)
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            else:
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            count += 1
+        queryArgs = {'commodity': 'EG.DCE', 'date': {'$gte': start_date}, 'method': method}
+        projectionField = ['date', 'commodity', 'upper_profit', 'upper_profit_rate', 'method']
+        res = self.target_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        exists_df = pd.DataFrame.from_records(res, index='date')
+        exists_df.drop(columns='_id', inplace=True)
+        sub_res = total_df[['upper_profit', 'upper_profit_rate']] - exists_df[['upper_profit', 'upper_profit_rate']]
+        isZero = (sub_res == 0).all(axis=1).values
+        diff_res = sub_res.loc[~isZero]
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        self.logger.info('插入EG的%s利润率' % method)
+        if diff_res.empty:
+            self.logger.info('EG的%s利润率没有新的数据' % method)
+        else:
+            count = 0
+            for i in diff_res.index:
+                if i not in total_df.index:
+                    continue
+                elif i in exists_df.index:
+                    # 说明新计算的数据与已存在的数据不一致
+                    self.logger.info('EG的%s利润率在%s这一天的数据与数据库存在的数据不一致' % (method, i))
+                    self.logger.info(
+                        '数据库之前存在的数据: upper_profit %f, upper_profit_rate %f, 现在修改为新值： upper_profit %f, upper_profit_rate %f' % (
+                            exists_df.loc[i, 'upper_profit'], exists_df.loc[i, 'upper_profit_rate'],
+                            total_df.loc[i, 'upper_profit'], total_df.loc[i, 'upper_profit_rate']))
+                    self.target_coll.delete_many({'commodity': 'EG.DCE', 'date': i, 'method': method})
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+                else:
+                    # 该数据是新增的数据
+                    self.logger.info('EG的%s利润率在%s这一天的数据进入数据库' % (method, i))
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+            self.logger.info('EG更新了%d条%s利润数据' % (count, method))
+
+        # res_dict = total_df.to_dict(orient='index')
+        # print('插入MEG的%s利润率' % method)
+        # total = len(res_dict)
+        # count = 1
+        # for k, v in res_dict.items():
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     queryArgs = {'commodity': 'EG.DCE', 'date': v['date'], 'method': method}
+        #     projectionField = ['upper_profit', 'upper_profit_rate']
+        #     res = self.target_coll.find_one(queryArgs, projectionField)
+        #     if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
+        #         count += 1
+        #         continue
+        #     elif res and (
+        #             res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
+        #         self.target_coll.delete_many(queryArgs)
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     else:
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     count += 1
+        #
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
 
     def calc_rb_profit_rate(self, method='future'):
         """RB的利润公式：RB - 1.7 * I - 0.5 * J - 800"""
@@ -379,33 +559,75 @@ class ProfitRate(object):
         total_df['commodity'] = 'RB.SHF'
         total_df['method'] = method
 
-        res_dict = total_df.to_dict(orient='index')
-        print('插入RB的%s利润率' % method)
-        total = len(res_dict)
-        count = 1
-        for k, v in res_dict.items():
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
+        start_date = total_df.index[0]
 
-            queryArgs = {'commodity': 'RB.SHF', 'date': v['date'], 'method': method}
-            projectionField = ['upper_profit', 'upper_profit_rate']
-            res = self.target_coll.find_one(queryArgs, projectionField)
-            if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
-                count += 1
-                continue
-            elif res and (
-                    res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
-                self.target_coll.delete_many(queryArgs)
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            else:
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            count += 1
+        queryArgs = {'commodity': 'RB.SHF', 'date': {'$gte': start_date}, 'method': method}
+        projectionField = ['date', 'commodity', 'upper_profit', 'upper_profit_rate', 'method']
+        res = self.target_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        exists_df = pd.DataFrame.from_records(res, index='date')
+        exists_df.drop(columns='_id', inplace=True)
+        sub_res = total_df[['upper_profit', 'upper_profit_rate']] - exists_df[['upper_profit', 'upper_profit_rate']]
+        isZero = (sub_res == 0).all(axis=1).values
+        diff_res = sub_res.loc[~isZero]
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        self.logger.info('插入RB的%s利润率' % method)
+        if diff_res.empty:
+            self.logger.info('RB的%s利润率没有新的数据' % method)
+        else:
+            count = 0
+            for i in diff_res.index:
+                if i not in total_df.index:
+                    continue
+                elif i in exists_df.index:
+                    # 说明新计算的数据与已存在的数据不一致
+                    self.logger.info('RB的%s利润率在%s这一天的数据与数据库存在的数据不一致' % (method, i))
+                    self.logger.info(
+                        '数据库之前存在的数据: upper_profit %f, upper_profit_rate %f, 现在修改为新值： upper_profit %f, upper_profit_rate %f' % (
+                            exists_df.loc[i, 'upper_profit'], exists_df.loc[i, 'upper_profit_rate'],
+                            total_df.loc[i, 'upper_profit'], total_df.loc[i, 'upper_profit_rate']))
+                    self.target_coll.delete_many({'commodity': 'RB.SHF', 'date': i, 'method': method})
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+                else:
+                    # 该数据是新增的数据
+                    self.logger.info('RB的%s利润率在%s这一天的数据进入数据库' % (method, i))
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+            self.logger.info('RB更新了%d条%s利润数据' % (count, method))
+
+        # res_dict = total_df.to_dict(orient='index')
+        # print('插入RB的%s利润率' % method)
+        # total = len(res_dict)
+        # count = 1
+        # for k, v in res_dict.items():
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     queryArgs = {'commodity': 'RB.SHF', 'date': v['date'], 'method': method}
+        #     projectionField = ['upper_profit', 'upper_profit_rate']
+        #     res = self.target_coll.find_one(queryArgs, projectionField)
+        #     if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
+        #         count += 1
+        #         continue
+        #     elif res and (
+        #             res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
+        #         self.target_coll.delete_many(queryArgs)
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     else:
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     count += 1
+        #
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
 
     def calc_hc_profit_rate(self, method='future'):
         """HC的利润公式：HC - 1.7 * I - 0.5 * J - 800"""
@@ -465,33 +687,75 @@ class ProfitRate(object):
         total_df['commodity'] = 'HC.SHF'
         total_df['method'] = method
 
-        res_dict = total_df.to_dict(orient='index')
-        print('插入HC的%s利润率' % method)
-        total = len(res_dict)
-        count = 1
-        for k, v in res_dict.items():
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
+        start_date = total_df.index[0]
 
-            queryArgs = {'commodity': 'HC.SHF', 'date': v['date'], 'method': method}
-            projectionField = ['upper_profit', 'upper_profit_rate']
-            res = self.target_coll.find_one(queryArgs, projectionField)
-            if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
-                count += 1
-                continue
-            elif res and (
-                    res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
-                self.target_coll.delete_many(queryArgs)
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            else:
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            count += 1
+        queryArgs = {'commodity': 'HC.SHF', 'date': {'$gte': start_date}, 'method': method}
+        projectionField = ['date', 'commodity', 'upper_profit', 'upper_profit_rate', 'method']
+        res = self.target_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        exists_df = pd.DataFrame.from_records(res, index='date')
+        exists_df.drop(columns='_id', inplace=True)
+        sub_res = total_df[['upper_profit', 'upper_profit_rate']] - exists_df[['upper_profit', 'upper_profit_rate']]
+        isZero = (sub_res == 0).all(axis=1).values
+        diff_res = sub_res.loc[~isZero]
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        self.logger.info('插入HC的%s利润率' % method)
+        if diff_res.empty:
+            self.logger.info('HC的%s利润率没有新的数据' % method)
+        else:
+            count = 0
+            for i in diff_res.index:
+                if i not in total_df.index:
+                    continue
+                elif i in exists_df.index:
+                    # 说明新计算的数据与已存在的数据不一致
+                    self.logger.info('HC的%s利润率在%s这一天的数据与数据库存在的数据不一致' % (method, i))
+                    self.logger.info(
+                        '数据库之前存在的数据: upper_profit %f, upper_profit_rate %f, 现在修改为新值： upper_profit %f, upper_profit_rate %f' % (
+                            exists_df.loc[i, 'upper_profit'], exists_df.loc[i, 'upper_profit_rate'],
+                            total_df.loc[i, 'upper_profit'], total_df.loc[i, 'upper_profit_rate']))
+                    self.target_coll.delete_many({'commodity': 'HC.SHF', 'date': i, 'method': method})
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+                else:
+                    # 该数据是新增的数据
+                    self.logger.info('HC的%s利润率在%s这一天的数据进入数据库' % (method, i))
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+            self.logger.info('HC更新了%d条%s利润数据' % (count, method))
+
+        # res_dict = total_df.to_dict(orient='index')
+        # print('插入HC的%s利润率' % method)
+        # total = len(res_dict)
+        # count = 1
+        # for k, v in res_dict.items():
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     queryArgs = {'commodity': 'HC.SHF', 'date': v['date'], 'method': method}
+        #     projectionField = ['upper_profit', 'upper_profit_rate']
+        #     res = self.target_coll.find_one(queryArgs, projectionField)
+        #     if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
+        #         count += 1
+        #         continue
+        #     elif res and (
+        #             res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
+        #         self.target_coll.delete_many(queryArgs)
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     else:
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     count += 1
+        #
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
 
     def calc_j_profit_rate(self, method='future'):
         """J的利润公式：J - 1.2 * JM - 50"""
@@ -536,33 +800,75 @@ class ProfitRate(object):
         total_df['commodity'] = 'J.DCE'
         total_df['method'] = method
 
-        res_dict = total_df.to_dict(orient='index')
-        print('插入J的%s利润率' % method)
-        total = len(res_dict)
-        count = 1
-        for k, v in res_dict.items():
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
+        start_date = total_df.index[0]
 
-            queryArgs = {'commodity': 'J.DCE', 'date': v['date'], 'method': method}
-            projectionField = ['upper_profit', 'upper_profit_rate']
-            res = self.target_coll.find_one(queryArgs, projectionField)
-            if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
-                count += 1
-                continue
-            elif res and (
-                    res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
-                self.target_coll.delete_many(queryArgs)
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            else:
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            count += 1
+        queryArgs = {'commodity': 'J.DCE', 'date': {'$gte': start_date}, 'method': method}
+        projectionField = ['date', 'commodity', 'upper_profit', 'upper_profit_rate', 'method']
+        res = self.target_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        exists_df = pd.DataFrame.from_records(res, index='date')
+        exists_df.drop(columns='_id', inplace=True)
+        sub_res = total_df[['upper_profit', 'upper_profit_rate']] - exists_df[['upper_profit', 'upper_profit_rate']]
+        isZero = (sub_res == 0).all(axis=1).values
+        diff_res = sub_res.loc[~isZero]
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        self.logger.info('插入J的%s利润率' % method)
+        if diff_res.empty:
+            self.logger.info('J的%s利润率没有新的数据' % method)
+        else:
+            count = 0
+            for i in diff_res.index:
+                if i not in total_df.index:
+                    continue
+                elif i in exists_df.index:
+                    # 说明新计算的数据与已存在的数据不一致
+                    self.logger.info('J的%s利润率在%s这一天的数据与数据库存在的数据不一致' % (method, i))
+                    self.logger.info(
+                        '数据库之前存在的数据: upper_profit %f, upper_profit_rate %f, 现在修改为新值： upper_profit %f, upper_profit_rate %f' % (
+                            exists_df.loc[i, 'upper_profit'], exists_df.loc[i, 'upper_profit_rate'],
+                            total_df.loc[i, 'upper_profit'], total_df.loc[i, 'upper_profit_rate']))
+                    self.target_coll.delete_many({'commodity': 'J.DCE', 'date': i, 'method': method})
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+                else:
+                    # 该数据是新增的数据
+                    self.logger.info('J的%s利润率在%s这一天的数据进入数据库' % (method, i))
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+            self.logger.info('J更新了%d条%s利润数据' % (count, method))
+
+        # res_dict = total_df.to_dict(orient='index')
+        # print('插入J的%s利润率' % method)
+        # total = len(res_dict)
+        # count = 1
+        # for k, v in res_dict.items():
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     queryArgs = {'commodity': 'J.DCE', 'date': v['date'], 'method': method}
+        #     projectionField = ['upper_profit', 'upper_profit_rate']
+        #     res = self.target_coll.find_one(queryArgs, projectionField)
+        #     if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
+        #         count += 1
+        #         continue
+        #     elif res and (
+        #             res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
+        #         self.target_coll.delete_many(queryArgs)
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     else:
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     count += 1
+        #
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
 
     def get_ru_profit_rate(self):
         file_address = 'profit_db/ru.csv'
@@ -661,34 +967,76 @@ class ProfitRate(object):
         total_df['commodity'] = 'RU.SHF'
         total_df['method'] = method
 
+        start_date = total_df.index[0]
 
-        res_dict = total_df.to_dict(orient='index')
-        print('插入RU的%s利润率' % method)
-        total = len(res_dict)
-        count = 1
-        for k, v in res_dict.items():
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
+        queryArgs = {'commodity': 'RU.SHF', 'date': {'$gte': start_date}, 'method': method}
+        projectionField = ['date', 'commodity', 'upper_profit', 'upper_profit_rate', 'method']
+        res = self.target_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        exists_df = pd.DataFrame.from_records(res, index='date')
+        exists_df.drop(columns='_id', inplace=True)
+        sub_res = total_df[['upper_profit', 'upper_profit_rate']] - exists_df[['upper_profit', 'upper_profit_rate']]
+        isZero = (sub_res == 0).all(axis=1).values
+        diff_res = sub_res.loc[~isZero]
 
-            queryArgs = {'commodity': 'RU.SHF', 'date': v['date'], 'method': method}
-            projectionField = ['upper_profit', 'upper_profit_rate']
-            res = self.target_coll.find_one(queryArgs, projectionField)
-            if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
-                count += 1
-                continue
-            elif res and (
-                    res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
-                self.target_coll.delete_many(queryArgs)
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            else:
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            count += 1
+        self.logger.info('插入RU的%s利润率' % method)
+        if diff_res.empty:
+            self.logger.info('RU的%s利润率没有新的数据' % method)
+        else:
+            count = 0
+            for i in diff_res.index:
+                if i not in total_df.index:
+                    continue
+                elif i in exists_df.index:
+                    # 说明新计算的数据与已存在的数据不一致
+                    self.logger.info('RU的%s利润率在%s这一天的数据与数据库存在的数据不一致' % (method, i))
+                    self.logger.info(
+                        '数据库之前存在的数据: upper_profit %f, upper_profit_rate %f, 现在修改为新值： upper_profit %f, upper_profit_rate %f' % (
+                            exists_df.loc[i, 'upper_profit'], exists_df.loc[i, 'upper_profit_rate'],
+                            total_df.loc[i, 'upper_profit'], total_df.loc[i, 'upper_profit_rate']))
+                    self.target_coll.delete_many({'commodity': 'RU.SHF', 'date': i, 'method': method})
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+                else:
+                    # 该数据是新增的数据
+                    self.logger.info('RU的%s利润率在%s这一天的数据进入数据库' % (method, i))
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+            self.logger.info('RU更新了%d条%s利润数据' % (count, method))
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+
+        # res_dict = total_df.to_dict(orient='index')
+        # print('插入RU的%s利润率' % method)
+        # total = len(res_dict)
+        # count = 1
+        # for k, v in res_dict.items():
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     queryArgs = {'commodity': 'RU.SHF', 'date': v['date'], 'method': method}
+        #     projectionField = ['upper_profit', 'upper_profit_rate']
+        #     res = self.target_coll.find_one(queryArgs, projectionField)
+        #     if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
+        #         count += 1
+        #         continue
+        #     elif res and (
+        #             res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
+        #         self.target_coll.delete_many(queryArgs)
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     else:
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     count += 1
+        #
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
 
 
     def get_pvc_profit_rate(self):
@@ -785,34 +1133,76 @@ class ProfitRate(object):
         total_df['commodity'] = 'V.DCE'
         total_df['method'] = method
 
-        res_dict = total_df.to_dict(orient='index')
-        print('插入PVC的%s利润率' % method)
-        total = len(res_dict)
-        count = 1
-        for k, v in res_dict.items():
+        start_date = total_df.index[0]
 
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
+        queryArgs = {'commodity': 'V.DCE', 'date': {'$gte': start_date}, 'method': method}
+        projectionField = ['date', 'commodity', 'upper_profit', 'upper_profit_rate', 'method']
+        res = self.target_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        exists_df = pd.DataFrame.from_records(res, index='date')
+        exists_df.drop(columns='_id', inplace=True)
+        sub_res = total_df[['upper_profit', 'upper_profit_rate']] - exists_df[['upper_profit', 'upper_profit_rate']]
+        isZero = (sub_res == 0).all(axis=1).values
+        diff_res = sub_res.loc[~isZero]
 
-            queryArgs = {'commodity': 'V.DCE', 'date': v['date'], 'method': method}
-            projectionField = ['upper_profit', 'upper_profit_rate']
-            res = self.target_coll.find_one(queryArgs, projectionField)
-            if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
-                count += 1
-                continue
-            elif res and (
-                    res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
-                self.target_coll.delete_many(queryArgs)
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            else:
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            count += 1
+        self.logger.info('插入V的%s利润率' % method)
+        if diff_res.empty:
+            self.logger.info('V的%s利润率没有新的数据' % method)
+        else:
+            count = 0
+            for i in diff_res.index:
+                if i not in total_df.index:
+                    continue
+                elif i in exists_df.index:
+                    # 说明新计算的数据与已存在的数据不一致
+                    self.logger.info('V的%s利润率在%s这一天的数据与数据库存在的数据不一致' % (method, i))
+                    self.logger.info(
+                        '数据库之前存在的数据: upper_profit %f, upper_profit_rate %f, 现在修改为新值： upper_profit %f, upper_profit_rate %f' % (
+                            exists_df.loc[i, 'upper_profit'], exists_df.loc[i, 'upper_profit_rate'],
+                            total_df.loc[i, 'upper_profit'], total_df.loc[i, 'upper_profit_rate']))
+                    self.target_coll.delete_many({'commodity': 'V.DCE', 'date': i, 'method': method})
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+                else:
+                    # 该数据是新增的数据
+                    self.logger.info('V的%s利润率在%s这一天的数据进入数据库' % (method, i))
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+            self.logger.info('V更新了%d条%s利润数据' % (count, method))
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        # res_dict = total_df.to_dict(orient='index')
+        # print('插入PVC的%s利润率' % method)
+        # total = len(res_dict)
+        # count = 1
+        # for k, v in res_dict.items():
+        #
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     queryArgs = {'commodity': 'V.DCE', 'date': v['date'], 'method': method}
+        #     projectionField = ['upper_profit', 'upper_profit_rate']
+        #     res = self.target_coll.find_one(queryArgs, projectionField)
+        #     if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
+        #         count += 1
+        #         continue
+        #     elif res and (
+        #             res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
+        #         self.target_coll.delete_many(queryArgs)
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     else:
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     count += 1
+        #
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
 
     def calc_bu_profit_rate(self, method='future'):
         """BU的利润公式：BU - 7.5 * DUB-1M * 美元兑人民币"""
@@ -860,33 +1250,75 @@ class ProfitRate(object):
         total_df['commodity'] = 'BU.SHF'
         total_df['method'] = method
 
-        res_dict = total_df.to_dict(orient='index')
-        print('插入BU的%s利润率' % method)
-        total = len(res_dict)
-        count = 1
-        for k, v in res_dict.items():
+        start_date = total_df.index[0]
 
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
+        queryArgs = {'commodity': 'BU.SHF', 'date': {'$gte': start_date}, 'method': method}
+        projectionField = ['date', 'commodity', 'upper_profit', 'upper_profit_rate', 'method']
+        res = self.target_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        exists_df = pd.DataFrame.from_records(res, index='date')
+        exists_df.drop(columns='_id', inplace=True)
+        sub_res = total_df[['upper_profit', 'upper_profit_rate']] - exists_df[['upper_profit', 'upper_profit_rate']]
+        isZero = (sub_res == 0).all(axis=1).values
+        diff_res = sub_res.loc[~isZero]
 
-            queryArgs = {'commodity': 'BU.SHF', 'date': v['date'], 'method': method}
-            projectionField = ['upper_profit', 'upper_profit_rate']
-            res = self.target_coll.find_one(queryArgs, projectionField)
-            if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
-                count += 1
-                continue
-            elif res and (res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
-                self.target_coll.delete_many(queryArgs)
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            else:
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            count += 1
+        self.logger.info('插入BU的%s利润率' % method)
+        if diff_res.empty:
+            self.logger.info('BU的%s利润率没有新的数据' % method)
+        else:
+            count = 0
+            for i in diff_res.index:
+                if i not in total_df.index:
+                    continue
+                elif i in exists_df.index:
+                    # 说明新计算的数据与已存在的数据不一致
+                    self.logger.info('BU的%s利润率在%s这一天的数据与数据库存在的数据不一致' % (method, i))
+                    self.logger.info(
+                        '数据库之前存在的数据: upper_profit %f, upper_profit_rate %f, 现在修改为新值： upper_profit %f, upper_profit_rate %f' % (
+                            exists_df.loc[i, 'upper_profit'], exists_df.loc[i, 'upper_profit_rate'],
+                            total_df.loc[i, 'upper_profit'], total_df.loc[i, 'upper_profit_rate']))
+                    self.target_coll.delete_many({'commodity': 'BU.SHF', 'date': i, 'method': method})
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+                else:
+                    # 该数据是新增的数据
+                    self.logger.info('BU的%s利润率在%s这一天的数据进入数据库' % (method, i))
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+            self.logger.info('BU更新了%d条%s利润数据' % (count, method))
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        # res_dict = total_df.to_dict(orient='index')
+        # print('插入BU的%s利润率' % method)
+        # total = len(res_dict)
+        # count = 1
+        # for k, v in res_dict.items():
+        #
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     queryArgs = {'commodity': 'BU.SHF', 'date': v['date'], 'method': method}
+        #     projectionField = ['upper_profit', 'upper_profit_rate']
+        #     res = self.target_coll.find_one(queryArgs, projectionField)
+        #     if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
+        #         count += 1
+        #         continue
+        #     elif res and (res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
+        #         self.target_coll.delete_many(queryArgs)
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     else:
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     count += 1
+        #
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
 
     def calc_pta_profit_rate(self, method='future'):
         """PTA的利润公式：PTA - (PX * 1.02 * 1.17 * 0.656 * 美元兑人民币)"""
@@ -934,33 +1366,75 @@ class ProfitRate(object):
         total_df['commodity'] = 'TA.CZC'
         total_df['method'] = method
 
-        res_dict = total_df.to_dict(orient='index')
-        print('插入PTA的%s利润率' % method)
-        total = len(res_dict)
-        count = 1
-        for k, v in res_dict.items():
+        start_date = total_df.index[0]
 
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
+        queryArgs = {'commodity': 'TA.CZC', 'date': {'$gte': start_date}, 'method': method}
+        projectionField = ['date', 'commodity', 'upper_profit', 'upper_profit_rate', 'method']
+        res = self.target_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        exists_df = pd.DataFrame.from_records(res, index='date')
+        exists_df.drop(columns='_id', inplace=True)
+        sub_res = total_df[['upper_profit', 'upper_profit_rate']] - exists_df[['upper_profit', 'upper_profit_rate']]
+        isZero = (sub_res == 0).all(axis=1).values
+        diff_res = sub_res.loc[~isZero]
 
-            queryArgs = {'commodity': 'TA.CZC', 'date': v['date'], 'method': method}
-            projectionField = ['upper_profit', 'upper_profit_rate']
-            res = self.target_coll.find_one(queryArgs, projectionField)
-            if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
-                count += 1
-                continue
-            elif res and (res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
-                self.target_coll.delete_many(queryArgs)
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            else:
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            count += 1
+        self.logger.info('插入TA的%s利润率' % method)
+        if diff_res.empty:
+            self.logger.info('TA的%s利润率没有新的数据' % method)
+        else:
+            count = 0
+            for i in diff_res.index:
+                if i not in total_df.index:
+                    continue
+                elif i in exists_df.index:
+                    # 说明新计算的数据与已存在的数据不一致
+                    self.logger.info('TA的%s利润率在%s这一天的数据与数据库存在的数据不一致' % (method, i))
+                    self.logger.info(
+                        '数据库之前存在的数据: upper_profit %f, upper_profit_rate %f, 现在修改为新值： upper_profit %f, upper_profit_rate %f' % (
+                            exists_df.loc[i, 'upper_profit'], exists_df.loc[i, 'upper_profit_rate'],
+                            total_df.loc[i, 'upper_profit'], total_df.loc[i, 'upper_profit_rate']))
+                    self.target_coll.delete_many({'commodity': 'TA.CZC', 'date': i, 'method': method})
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+                else:
+                    # 该数据是新增的数据
+                    self.logger.info('TA的%s利润率在%s这一天的数据进入数据库' % (method, i))
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+            self.logger.info('TA更新了%d条%s利润数据' % (count, method))
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        # res_dict = total_df.to_dict(orient='index')
+        # print('插入PTA的%s利润率' % method)
+        # total = len(res_dict)
+        # count = 1
+        # for k, v in res_dict.items():
+        #
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     queryArgs = {'commodity': 'TA.CZC', 'date': v['date'], 'method': method}
+        #     projectionField = ['upper_profit', 'upper_profit_rate']
+        #     res = self.target_coll.find_one(queryArgs, projectionField)
+        #     if res and res['upper_profit'] == v['upper_profit'] and res['upper_profit_rate'] == v['upper_profit_rate']:
+        #         count += 1
+        #         continue
+        #     elif res and (res['upper_profit'] != v['upper_profit'] or res['upper_profit_rate'] != v['upper_profit_rate']):
+        #         self.target_coll.delete_many(queryArgs)
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     else:
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     count += 1
+        #
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
 
     def calc_dimo_profit_rate(self, method='future'):
         '''地膜利润=地膜-LL神华*0.935-600'''
@@ -995,34 +1469,76 @@ class ProfitRate(object):
         total_df['commodity'] = 'DIMO'
         total_df['method'] = method
 
-        res_dict = total_df.to_dict(orient='index')
-        print('插入地膜的%s利润率' % method)
-        total = len(res_dict)
-        count = 1
-        for k, v in res_dict.items():
+        start_date = total_df.index[0]
 
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
+        queryArgs = {'commodity': 'DIMO', 'date': {'$gte': start_date}, 'method': method}
+        projectionField = ['date', 'commodity', 'dimo_profit', 'dimo_profit_rate', 'method']
+        res = self.target_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        exists_df = pd.DataFrame.from_records(res, index='date')
+        exists_df.drop(columns='_id', inplace=True)
+        sub_res = total_df[['dimo_profit', 'dimo_profit_rate']] - exists_df[['dimo_profit', 'dimo_profit_rate']]
+        isZero = (sub_res == 0).all(axis=1).values
+        diff_res = sub_res.loc[~isZero]
 
-            queryArgs = {'commodity': 'DIMO', 'date': v['date'], 'method': method}
-            projectionField = ['dimo_profit', 'dimo_profit_rate']
-            res = self.target_coll.find_one(queryArgs, projectionField)
-            if res and res['dimo_profit'] == v['dimo_profit'] and res['dimo_profit_rate'] == v['dimo_profit_rate']:
-                count += 1
-                continue
-            elif res and (
-                    res['dimo_profit'] != v['dimo_profit'] or res['dimo_profit_rate'] != v['dimo_profit_rate']):
-                self.target_coll.delete_many(queryArgs)
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            else:
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            count += 1
+        self.logger.info('插入地膜的%s利润率' % method)
+        if diff_res.empty:
+            self.logger.info('地膜的%s利润率没有新的数据' % method)
+        else:
+            count = 0
+            for i in diff_res.index:
+                if i not in total_df.index:
+                    continue
+                elif i in exists_df.index:
+                    # 说明新计算的数据与已存在的数据不一致
+                    self.logger.info('地膜的%s利润率在%s这一天的数据与数据库存在的数据不一致' % (method, i))
+                    self.logger.info(
+                        '数据库之前存在的数据: dimo_profit %f, dimo_profit_rate %f, 现在修改为新值： dimo_profit %f, dimo_profit_rate %f' % (
+                            exists_df.loc[i, 'dimo_profit'], exists_df.loc[i, 'dimo_profit_rate'],
+                            total_df.loc[i, 'dimo_profit'], total_df.loc[i, 'dimo_profit_rate']))
+                    self.target_coll.delete_many({'commodity': 'DIMO', 'date': i, 'method': method})
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+                else:
+                    # 该数据是新增的数据
+                    self.logger.info('地膜的%s利润率在%s这一天的数据进入数据库' % (method, i))
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+            self.logger.info('地膜更新了%d条%s利润数据' % (count, method))
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        # res_dict = total_df.to_dict(orient='index')
+        # print('插入地膜的%s利润率' % method)
+        # total = len(res_dict)
+        # count = 1
+        # for k, v in res_dict.items():
+        #
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     queryArgs = {'commodity': 'DIMO', 'date': v['date'], 'method': method}
+        #     projectionField = ['dimo_profit', 'dimo_profit_rate']
+        #     res = self.target_coll.find_one(queryArgs, projectionField)
+        #     if res and res['dimo_profit'] == v['dimo_profit'] and res['dimo_profit_rate'] == v['dimo_profit_rate']:
+        #         count += 1
+        #         continue
+        #     elif res and (
+        #             res['dimo_profit'] != v['dimo_profit'] or res['dimo_profit_rate'] != v['dimo_profit_rate']):
+        #         self.target_coll.delete_many(queryArgs)
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     else:
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     count += 1
+        #
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
 
     def calc_shuangfang_profit_rate(self, method='future'):
         '''双防膜利润=双防膜-(LL天津9085*0.6+华北重包*0.4)*0.915-1200'''
@@ -1067,35 +1583,77 @@ class ProfitRate(object):
         total_df['commodity'] = 'SHUANGFANG'
         total_df['method'] = method
 
-        res_dict = total_df.to_dict(orient='index')
-        print('插入双防膜的%s利润率' % method)
-        total = len(res_dict)
-        count = 1
-        for k, v in res_dict.items():
+        start_date = total_df.index[0]
 
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
+        queryArgs = {'commodity': 'SHUANGFANG', 'date': {'$gte': start_date}, 'method': method}
+        projectionField = ['date', 'commodity', 'shuangfang_profit', 'shuangfang_profit_rate', 'method']
+        res = self.target_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        exists_df = pd.DataFrame.from_records(res, index='date')
+        exists_df.drop(columns='_id', inplace=True)
+        sub_res = total_df[['shuangfang_profit', 'shuangfang_profit_rate']] - exists_df[['shuangfang_profit', 'shuangfang_profit_rate']]
+        isZero = (sub_res == 0).all(axis=1).values
+        diff_res = sub_res.loc[~isZero]
 
-            queryArgs = {'commodity': 'SHUANGFANG', 'date': v['date'], 'method': method}
-            projectionField = ['shuangfang_profit', 'shuangfang_profit_rate']
-            res = self.target_coll.find_one(queryArgs, projectionField)
-            if res and res['shuangfang_profit'] == v['shuangfang_profit'] and res['shuangfang_profit_rate'] == v[
-                'shuangfang_profit_rate']:
-                count += 1
-                continue
-            elif res and (res['shuangfang_profit'] != v['shuangfang_profit'] or res['shuangfang_profit_rate'] != v[
-                'shuangfang_profit_rate']):
-                self.target_coll.delete_many(queryArgs)
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            else:
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            count += 1
+        self.logger.info('插入双防膜的%s利润率' % method)
+        if diff_res.empty:
+            self.logger.info('双防膜的%s利润率没有新的数据' % method)
+        else:
+            count = 0
+            for i in diff_res.index:
+                if i not in total_df.index:
+                    continue
+                elif i in exists_df.index:
+                    # 说明新计算的数据与已存在的数据不一致
+                    self.logger.info('双防膜的%s利润率在%s这一天的数据与数据库存在的数据不一致' % (method, i))
+                    self.logger.info(
+                        '数据库之前存在的数据: shuangfang_profit %f, shuangfang_profit_rate %f, 现在修改为新值： shuangfang_profit %f, shuangfang_profit_rate %f' % (
+                            exists_df.loc[i, 'shuangfang_profit'], exists_df.loc[i, 'shuangfang_profit_rate'],
+                            total_df.loc[i, 'shuangfang_profit'], total_df.loc[i, 'shuangfang_profit_rate']))
+                    self.target_coll.delete_many({'commodity': 'SHUANGFANG', 'date': i, 'method': method})
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+                else:
+                    # 该数据是新增的数据
+                    self.logger.info('双防膜的%s利润率在%s这一天的数据进入数据库' % (method, i))
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+            self.logger.info('双防膜更新了%d条%s利润数据' % (count, method))
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        # res_dict = total_df.to_dict(orient='index')
+        # print('插入双防膜的%s利润率' % method)
+        # total = len(res_dict)
+        # count = 1
+        # for k, v in res_dict.items():
+        #
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     queryArgs = {'commodity': 'SHUANGFANG', 'date': v['date'], 'method': method}
+        #     projectionField = ['shuangfang_profit', 'shuangfang_profit_rate']
+        #     res = self.target_coll.find_one(queryArgs, projectionField)
+        #     if res and res['shuangfang_profit'] == v['shuangfang_profit'] and res['shuangfang_profit_rate'] == v[
+        #         'shuangfang_profit_rate']:
+        #         count += 1
+        #         continue
+        #     elif res and (res['shuangfang_profit'] != v['shuangfang_profit'] or res['shuangfang_profit_rate'] != v[
+        #         'shuangfang_profit_rate']):
+        #         self.target_coll.delete_many(queryArgs)
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     else:
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     count += 1
+        #
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
 
     def calc_chanrao_profit_rate(self, method='future'):
         '''缠绕膜利润=缠绕膜-LL华东-1500'''
@@ -1130,35 +1688,77 @@ class ProfitRate(object):
         total_df['commodity'] = 'CHANRAO'
         total_df['method'] = method
 
-        res_dict = total_df.to_dict(orient='index')
-        print('插入缠绕膜的%s利润率' % method)
-        total = len(res_dict)
-        count = 1
-        for k, v in res_dict.items():
+        start_date = total_df.index[0]
 
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
+        queryArgs = {'commodity': 'CHANRAO', 'date': {'$gte': start_date}, 'method': method}
+        projectionField = ['date', 'commodity', 'chanrao_profit', 'chanrao_profit_rate', 'method']
+        res = self.target_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        exists_df = pd.DataFrame.from_records(res, index='date')
+        exists_df.drop(columns='_id', inplace=True)
+        sub_res = total_df[['chanrao_profit', 'chanrao_profit_rate']] - exists_df[['chanrao_profit', 'chanrao_profit_rate']]
+        isZero = (sub_res == 0).all(axis=1).values
+        diff_res = sub_res.loc[~isZero]
 
-            queryArgs = {'commodity': 'CHANRAO', 'date': v['date'], 'method': method}
-            projectionField = ['chanrao_profit', 'chanrao_profit_rate']
-            res = self.target_coll.find_one(queryArgs, projectionField)
-            if res and res['chanrao_profit'] == v['chanrao_profit'] and res['chanrao_profit_rate'] == v[
-                'chanrao_profit_rate']:
-                count += 1
-                continue
-            elif res and (res['chanrao_profit'] != v['chanrao_profit'] or res['chanrao_profit_rate'] != v[
-                'chanrao_profit_rate']):
-                self.target_coll.delete_many(queryArgs)
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            else:
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            count += 1
+        self.logger.info('插入缠绕膜的%s利润率' % method)
+        if diff_res.empty:
+            self.logger.info('缠绕膜的%s利润率没有新的数据' % method)
+        else:
+            count = 0
+            for i in diff_res.index:
+                if i not in total_df.index:
+                    continue
+                elif i in exists_df.index:
+                    # 说明新计算的数据与已存在的数据不一致
+                    self.logger.info('缠绕膜的%s利润率在%s这一天的数据与数据库存在的数据不一致' % (method, i))
+                    self.logger.info(
+                        '数据库之前存在的数据: chanrao_profit %f, chanrao_profit_rate %f, 现在修改为新值： chanrao_profit %f, chanrao_profit_rate %f' % (
+                            exists_df.loc[i, 'chanrao_profit'], exists_df.loc[i, 'chanrao_profit_rate'],
+                            total_df.loc[i, 'chanrao_profit'], total_df.loc[i, 'chanrao_profit_rate']))
+                    self.target_coll.delete_many({'commodity': 'CHANRAO', 'date': i, 'method': method})
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+                else:
+                    # 该数据是新增的数据
+                    self.logger.info('缠绕膜的%s利润率在%s这一天的数据进入数据库' % (method, i))
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+            self.logger.info('缠绕膜更新了%d条%s利润数据' % (count, method))
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        # res_dict = total_df.to_dict(orient='index')
+        # print('插入缠绕膜的%s利润率' % method)
+        # total = len(res_dict)
+        # count = 1
+        # for k, v in res_dict.items():
+        #
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     queryArgs = {'commodity': 'CHANRAO', 'date': v['date'], 'method': method}
+        #     projectionField = ['chanrao_profit', 'chanrao_profit_rate']
+        #     res = self.target_coll.find_one(queryArgs, projectionField)
+        #     if res and res['chanrao_profit'] == v['chanrao_profit'] and res['chanrao_profit_rate'] == v[
+        #         'chanrao_profit_rate']:
+        #         count += 1
+        #         continue
+        #     elif res and (res['chanrao_profit'] != v['chanrao_profit'] or res['chanrao_profit_rate'] != v[
+        #         'chanrao_profit_rate']):
+        #         self.target_coll.delete_many(queryArgs)
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     else:
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     count += 1
+        #
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
 
     def calc_bopp_profit_rate(self, method='future'):
         '''BOPP利润=BOPP-PP-1500'''
@@ -1193,33 +1793,75 @@ class ProfitRate(object):
         total_df['commodity'] = 'BOPP'
         total_df['method'] = method
 
-        res_dict = total_df.to_dict(orient='index')
-        print('插入BOPP的%s利润率' % method)
-        total = len(res_dict)
-        count = 1
-        for k, v in res_dict.items():
+        start_date = total_df.index[0]
 
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
+        queryArgs = {'commodity': 'BOPP', 'date': {'$gte': start_date}, 'method': method}
+        projectionField = ['date', 'commodity', 'bopp_profit', 'bopp_profit_rate', 'method']
+        res = self.target_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        exists_df = pd.DataFrame.from_records(res, index='date')
+        exists_df.drop(columns='_id', inplace=True)
+        sub_res = total_df[['bopp_profit', 'bopp_profit_rate']] - exists_df[['bopp_profit', 'bopp_profit_rate']]
+        isZero = (sub_res == 0).all(axis=1).values
+        diff_res = sub_res.loc[~isZero]
 
-            queryArgs = {'commodity': 'BOPP', 'date': v['date'], 'method': method}
-            projectionField = ['bopp_profit', 'bopp_profit_rate']
-            res = self.target_coll.find_one(queryArgs, projectionField)
-            if res and res['bopp_profit'] == v['bopp_profit'] and res['bopp_profit_rate'] == v['bopp_profit_rate']:
-                count += 1
-                continue
-            elif res and (res['bopp_profit'] != v['bopp_profit'] or res['bopp_profit_rate'] != v['bopp_profit_rate']):
-                self.target_coll.delete_many(queryArgs)
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            else:
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            count += 1
+        self.logger.info('插入BOPP的%s利润率' % method)
+        if diff_res.empty:
+            self.logger.info('BOPP的%s利润率没有新的数据' % method)
+        else:
+            count = 0
+            for i in diff_res.index:
+                if i not in total_df.index:
+                    continue
+                elif i in exists_df.index:
+                    # 说明新计算的数据与已存在的数据不一致
+                    self.logger.info('BOPP的%s利润率在%s这一天的数据与数据库存在的数据不一致' % (method, i))
+                    self.logger.info(
+                        '数据库之前存在的数据: bopp_profit %f, bopp_profit_rate %f, 现在修改为新值： bopp_profit %f, bopp_profit_rate %f' % (
+                            exists_df.loc[i, 'bopp_profit'], exists_df.loc[i, 'bopp_profit_rate'],
+                            total_df.loc[i, 'bopp_profit'], total_df.loc[i, 'bopp_profit_rate']))
+                    self.target_coll.delete_many({'commodity': 'BOPP', 'date': i, 'method': method})
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+                else:
+                    # 该数据是新增的数据
+                    self.logger.info('BOPP的%s利润率在%s这一天的数据进入数据库' % (method, i))
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+            self.logger.info('BOPP更新了%d条%s利润数据' % (count, method))
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        # res_dict = total_df.to_dict(orient='index')
+        # print('插入BOPP的%s利润率' % method)
+        # total = len(res_dict)
+        # count = 1
+        # for k, v in res_dict.items():
+        #
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     queryArgs = {'commodity': 'BOPP', 'date': v['date'], 'method': method}
+        #     projectionField = ['bopp_profit', 'bopp_profit_rate']
+        #     res = self.target_coll.find_one(queryArgs, projectionField)
+        #     if res and res['bopp_profit'] == v['bopp_profit'] and res['bopp_profit_rate'] == v['bopp_profit_rate']:
+        #         count += 1
+        #         continue
+        #     elif res and (res['bopp_profit'] != v['bopp_profit'] or res['bopp_profit_rate'] != v['bopp_profit_rate']):
+        #         self.target_coll.delete_many(queryArgs)
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     else:
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     count += 1
+        #
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
 
     def calc_poy_profit_rate(self, method='future'):
         '''POY利润 = POY-（0.855*PTA+0.335*MEG）-1150'''
@@ -1272,33 +1914,75 @@ class ProfitRate(object):
         total_df['commodity'] = 'POY'
         total_df['method'] = method
 
-        res_dict = total_df.to_dict(orient='index')
-        print('插入POY的%s利润率' % method)
-        total = len(res_dict)
-        count = 1
-        for k, v in res_dict.items():
+        start_date = total_df.index[0]
 
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
+        queryArgs = {'commodity': 'POY', 'date': {'$gte': start_date}, 'method': method}
+        projectionField = ['date', 'commodity', 'poy_profit', 'poy_profit_rate', 'method']
+        res = self.target_coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+        exists_df = pd.DataFrame.from_records(res, index='date')
+        exists_df.drop(columns='_id', inplace=True)
+        sub_res = total_df[['poy_profit', 'poy_profit_rate']] - exists_df[['poy_profit', 'poy_profit_rate']]
+        isZero = (sub_res == 0).all(axis=1).values
+        diff_res = sub_res.loc[~isZero]
 
-            queryArgs = {'commodity': 'POY', 'date': v['date'], 'method': method}
-            projectionField = ['poy_profit', 'poy_profit_rate']
-            res = self.target_coll.find_one(queryArgs, projectionField)
-            if res and res['poy_profit'] == v['poy_profit'] and res['poy_profit_rate'] == v['poy_profit_rate']:
-                count += 1
-                continue
-            elif res and (res['poy_profit'] != v['poy_profit'] or res['poy_profit_rate'] != v['poy_profit_rate']):
-                self.target_coll.delete_many(queryArgs)
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            else:
-                v.update({'update_time': datetime.now()})
-                self.target_coll.insert_one(v)
-            count += 1
+        self.logger.info('插入POY的%s利润率' % method)
+        if diff_res.empty:
+            self.logger.info('POY的%s利润率没有新的数据' % method)
+        else:
+            count = 0
+            for i in diff_res.index:
+                if i not in total_df.index:
+                    continue
+                elif i in exists_df.index:
+                    # 说明新计算的数据与已存在的数据不一致
+                    self.logger.info('POY的%s利润率在%s这一天的数据与数据库存在的数据不一致' % (method, i))
+                    self.logger.info(
+                        '数据库之前存在的数据: poy_profit %f, poy_profit_rate %f, 现在修改为新值： poy_profit %f, poy_profit_rate %f' % (
+                            exists_df.loc[i, 'poy_profit'], exists_df.loc[i, 'poy_profit_rate'],
+                            total_df.loc[i, 'poy_profit'], total_df.loc[i, 'poy_profit_rate']))
+                    self.target_coll.delete_many({'commodity': 'POY', 'date': i, 'method': method})
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+                else:
+                    # 该数据是新增的数据
+                    self.logger.info('POY的%s利润率在%s这一天的数据进入数据库' % (method, i))
+                    res_dict = total_df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    self.target_coll.insert_one(res_dict[i])
+                    count += 1
+            self.logger.info('POY更新了%d条%s利润数据' % (count, method))
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+        # res_dict = total_df.to_dict(orient='index')
+        # print('插入POY的%s利润率' % method)
+        # total = len(res_dict)
+        # count = 1
+        # for k, v in res_dict.items():
+        #
+        #     process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+        #     sys.stdout.write('\r' + process_str + '【已完成%5.2f%%】' % (count * 100. / total))
+        #     sys.stdout.flush()
+        #
+        #     queryArgs = {'commodity': 'POY', 'date': v['date'], 'method': method}
+        #     projectionField = ['poy_profit', 'poy_profit_rate']
+        #     res = self.target_coll.find_one(queryArgs, projectionField)
+        #     if res and res['poy_profit'] == v['poy_profit'] and res['poy_profit_rate'] == v['poy_profit_rate']:
+        #         count += 1
+        #         continue
+        #     elif res and (res['poy_profit'] != v['poy_profit'] or res['poy_profit_rate'] != v['poy_profit_rate']):
+        #         self.target_coll.delete_many(queryArgs)
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     else:
+        #         v.update({'update_time': datetime.now()})
+        #         self.target_coll.insert_one(v)
+        #     count += 1
+        #
+        # sys.stdout.write('\n')
+        # sys.stdout.flush()
 
 a = ProfitRate()
 a.calc_ll_profit_rate(method='future')

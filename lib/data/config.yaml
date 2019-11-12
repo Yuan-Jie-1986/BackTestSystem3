@@ -8,7 +8,7 @@ host: localhost
 port: 27017
 user: yuanjie
 pwd: yuanjie
-log_path: "E:\\CBNB\\BackTestSystem\\data_saving.log"
+log_path: "E:\\CBNB\\BackTestSystem3\\data_saving.log"
 
 collection:
 #  - Information
