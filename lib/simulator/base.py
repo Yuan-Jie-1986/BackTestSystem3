@@ -583,7 +583,7 @@ class BacktestSys(object):
         # 针对周频数据转频到日频
         for sub_class, sub_data in self.data.items():
             for d in sub_data:
-                if sub_data[d].frequency == 'weekly':
+                if sub_data[d].frequency == 'weekly' or sub_data[d].frequency == 'monthly':
                     dt_weekly = sub_data[d].dt
                     self.data[sub_class][d].add_dt(self.dt)
                     for f in sub_data[d].ts_data_field:
@@ -683,6 +683,8 @@ class BacktestSys(object):
         mode=2: 不加杠杆。所有持仓品种按照其波动率进行调整，按照相对的波动来对持仓进行分配。
         mode=3: 不加杠杆。所有持仓品种按照ATR进行调整，按照ATR来对持仓进行分配。计算ATR时需要最高价最低价
         mode=4: 不加杠杆。多空的资金相同，各个方向里的持仓品种的合约价值相同。
+        mode=5: 不加杠杆。多空的资金相同，各个方向里的持仓品种的合约价值相同。而且如果多或者空的个数不变的时候，持仓不调整。
+        mode=6: 不加杠杆。与mode=1相同。不过如果持有的合约比较少的话，单个品种最多占总资金的1/6。
         """
         if not self.holdingsCheck(holdingsObj):
             raise Exception('持仓品种没有行情数据，请检查字段是否正确')
@@ -963,6 +965,56 @@ class BacktestSys(object):
             for h in holdingsObj.asset:
                 holdingsObj.update_holdings(h, holdings_new[h].values.flatten())
             return holdingsObj
+
+    def holdingsLimit(self, holdingsObj, iskeep=1, **kwargs):
+        """
+        对持仓品种作限制。传入参数比如：{'BU.SHF': 1/6}，就是该品种的持仓不超过1/6
+        """
+        for k in kwargs:
+
+            if k not in holdingsObj.asset:
+                print(k)
+                raise Exception('进行限定的合约不在持仓里，请检查规则是否正确')
+            if kwargs[k] > 1:
+                raise Exception('%s提供的持仓比例限制大于1，可能出错' % k)
+
+            # 根据提供的比例计算出的最大持有货值
+            capital_max = kwargs[k] * self.capital
+
+            # 计算一手该合约的合约价值
+            dataObj_k = self.data['bt_price'][k]
+            if hasattr(dataObj_k, 'CLOSE') and (dataObj_k.bt_mode == 'OPEN' or dataObj_k.bt_mode == 'CLOSE'):
+                price = dataObj_k.CLOSE
+            else:
+                price = getattr(dataObj_k, dataObj_k.bt_mode)
+
+            value_k = price * dataObj_k.trade_unit * getattr(self, self.exchange_func[dataObj_k.unit_change]).CLOSE
+
+            # 计算最大持有手数，使用floor函数取整
+            holdings_previous = getattr(holdingsObj, k)
+            holdings_max = np.floor(capital_max / value_k)
+            holdings_processed = np.sign(getattr(holdingsObj, k)) * np.minimum(holdings_max, abs(getattr(holdingsObj, k)))
+
+            # 对于某些价格为nan & 处理后的持仓为nan & 处理之前持仓为0的情况，比如ZC.CZC
+            holdings_processed[(np.isnan(holdings_processed)) & (np.isnan(price)) & (holdings_previous == 0)] = 0
+
+            # 是否根据处理前持仓的变化来决定处理后持仓的变化
+            if iskeep:
+                holdings_previous_last = np.ones_like(holdings_previous) * np.nan
+                holdings_previous_last[1:] = holdings_previous[:-1]
+                isEqual = holdings_previous == holdings_previous_last
+                holdings_processed[isEqual] = np.nan
+                holdings_temp = pd.DataFrame(holdings_processed)
+                holdings_temp.fillna(method='ffill', inplace=True)
+                holdings_processed = holdings_temp.values.flatten()
+
+
+            holdingsObj.update_holdings(k, holdings_processed)
+
+        return holdingsObj
+
+
+
 
     def getPnlDaily(self, holdingsObj):
         '''
