@@ -868,6 +868,109 @@ Inventory:
     field: inventory
     path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\POY.csv"
 
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: J
+    area: 港口库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\焦炭港口库存.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: J
+    area: 钢厂库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\焦炭钢厂库存.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: I
+    area: 钢厂库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\铁矿钢厂库存.csv"
+
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: RB
+    area: 钢厂库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\螺纹钢厂库存.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: RU
+    area: 保税区内库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\橡胶保税区内库存.csv"
+
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: RU
+    area: 保税区外库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\橡胶保税区外库存.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: J
+    area: 焦化厂库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\焦炭焦化厂库存.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: MA
+    area: 内地库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\甲醇内地库存.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: weekly
+    cmd: HC
+    area: 钢厂库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\热卷钢厂库存.csv"
+
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: LL
+    area: 石化总库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\LL石化总库存.csv"
+
+  - source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: PP
+    area: 石化总库存
+    unit: 万吨
+    field: inventory
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\inventory_db\\PP石化总库存.csv"
+
 ImExport:
   - source: ManualInput
     func: getDataFromCSV

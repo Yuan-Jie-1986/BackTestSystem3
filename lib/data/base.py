@@ -903,38 +903,52 @@ class DataSaving(object):
         queryArgs.update(kwargs)
         projectionFields = ['date', field]
         exist_res = coll.find(queryArgs, projectionFields).sort('date', pymongo.ASCENDING)
-        exist_df = pd.DataFrame.from_records(exist_res, index='date')
-        exist_df.drop(columns='_id', inplace=True)
+        exist_res = list(exist_res)
+        if exist_res:
+            exist_df = pd.DataFrame.from_records(exist_res, index='date')
+            exist_df.drop(columns='_id', inplace=True)
 
-        sub_res = exist_df - df[[field]]
-        isEqual = sub_res == 0
-        diff_res = sub_res.loc[~isEqual.values.flatten()]
-        count = 0
-        for i in diff_res.index:
-            if i not in df.index:
-                # 该数值不在csv中
-                continue
-            elif i in exist_df.index:
-                # 该数值在csv和数据库中都存在，但是不一样
-                self.logger.info('%s在%s这一天的%s数据与数据库中已经存在的数据不一致' % (cmd, i, field))
-                self.logger.info('数据库存在的数据：%s, csv存在的数据：%s' % (exist_df.loc[i, field], df.loc[i, field]))
-                queryArgs = {'commodity': cmd, 'date': i}
-                queryArgs.update(kwargs)
-                coll.delete_many(queryArgs)
-                res_dict = df.loc[[i]].to_dict(orient='index')
-                res_dict[i]['date'] = i
-                res_dict[i]['update_time'] = datetime.now()
-                coll.insert_one(res_dict[i])
-                count += 1
-            else:
-                # 该数值是新增的数据库中没有的数据
+            sub_res = exist_df - df[[field]]
+            isEqual = sub_res == 0
+            diff_res = sub_res.loc[~isEqual.values.flatten()]
+
+            count = 0
+            for i in diff_res.index:
+                if i not in df.index:
+                    # 该数值不在csv中
+                    continue
+                elif i in exist_df.index:
+                    # 该数值在csv和数据库中都存在，但是不一样
+                    self.logger.info('%s在%s这一天的%s数据与数据库中已经存在的数据不一致' % (cmd, i, field))
+                    self.logger.info('数据库存在的数据：%s, csv存在的数据：%s' % (exist_df.loc[i, field], df.loc[i, field]))
+                    queryArgs = {'commodity': cmd, 'date': i}
+                    queryArgs.update(kwargs)
+                    coll.delete_many(queryArgs)
+                    res_dict = df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    coll.insert_one(res_dict[i])
+                    count += 1
+                else:
+                    # 该数值是新增的数据库中没有的数据
+                    self.logger.info('%s在%s这一天的%s数据进入数据库' % (cmd, i, field))
+                    res_dict = df.loc[[i]].to_dict(orient='index')
+                    res_dict[i]['date'] = i
+                    res_dict[i]['update_time'] = datetime.now()
+                    coll.insert_one(res_dict[i])
+                    count += 1
+            self.logger.info('%s更新了%d条%s数据' % (cmd, count, field))
+        else:
+            count = 0
+            for i in df.index:
                 self.logger.info('%s在%s这一天的%s数据进入数据库' % (cmd, i, field))
                 res_dict = df.loc[[i]].to_dict(orient='index')
                 res_dict[i]['date'] = i
                 res_dict[i]['update_time'] = datetime.now()
                 coll.insert_one(res_dict[i])
                 count += 1
-        self.logger.info('%s更新了%d条%s数据' % (cmd, count, field))
+            self.logger.info('%s更新了%d条%s数据' % (cmd, count, field))
+
 
 
 
