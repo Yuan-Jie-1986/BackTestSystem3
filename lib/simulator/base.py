@@ -685,6 +685,7 @@ class BacktestSys(object):
         mode=4: 不加杠杆。多空的资金相同，各个方向里的持仓品种的合约价值相同。
         mode=5: 不加杠杆。多空的资金相同，各个方向里的持仓品种的合约价值相同。而且如果多或者空的个数不变的时候，持仓不调整。
         mode=6: 不加杠杆。与mode=1相同。不过如果持有的合约比较少的话，单个品种最多占总资金的1/6。
+        mode=7: 不加杠杆。根据回测品种的个数平均分配资金，如果持仓该品种，根据分配的资金计算持仓
         """
         if not self.holdingsCheck(holdingsObj):
             raise Exception('持仓品种没有行情数据，请检查字段是否正确')
@@ -959,6 +960,31 @@ class BacktestSys(object):
             # 统计当天持仓个数是否与前一天持仓个数相同, 如果num_equal是True，那么持仓个数与前一天的相同
             num_equal = holdings_num == holdings_num_yestd
             holdings_equal.loc[~num_equal] = False
+            holdings_new[holdings_equal] = np.nan
+            holdings_new.fillna(method='ffill', inplace=True)
+            holdings_new = holdings_new.round(decimals=0)
+            for h in holdingsObj.asset:
+                holdingsObj.update_holdings(h, holdings_new[h].values.flatten())
+            return holdingsObj
+
+        elif mode == 7:
+            asset_num = len(self.data['bt_price'])
+            sub_capital = self.capital / asset_num
+
+            cls_df = cls_df * np.sign(holdings_df)
+            cls_df[cls_df == 0] = np.nan
+
+            holdings_new = pd.DataFrame()
+            for c in cls_df:
+                holdings_new[c] = sub_capital / cls_df[c]
+
+            holdings_new.fillna(0, inplace=True)
+
+            # 判断初始持仓是否与前一天的初始持仓相同
+            holdings_dir = np.sign(holdings_df)
+            holdings_yestd = holdings_dir.shift(periods=1)
+            holdings_equal = holdings_dir == holdings_yestd
+
             holdings_new[holdings_equal] = np.nan
             holdings_new.fillna(method='ffill', inplace=True)
             holdings_new = holdings_new.round(decimals=0)
