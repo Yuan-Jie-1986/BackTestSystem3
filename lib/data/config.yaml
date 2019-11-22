@@ -112,6 +112,7 @@ FuturesMD:
       - ZN.SHF
       - PB.SHF
       - SN.SHF
+      - EB.DCE
 
   -
     source: WIND
@@ -544,6 +545,7 @@ Information:
       - PB.LME
       - NI.LME
       - SN.LME
+      - EB.DCE
 
 ICEPrice:
   -
