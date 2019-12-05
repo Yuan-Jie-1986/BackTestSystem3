@@ -15,10 +15,19 @@ import os
 class DataSaving(object):
     def __init__(self, host, port, usr, pwd, db, log_path):
 
-        self.conn = pymongo.MongoClient(host=host, port=port)
-        self.db = self.conn[db]
-        self.db.authenticate(usr, pwd)
+        # 数据库登录的设置
+        self.mongo_login = False
+        self.conn = None
+        self.db = None
 
+        self.host = host
+        self.port = port
+        self.usr = usr
+        self.pwd = pwd
+        self.db_name = db
+
+
+        #  日志的设置
         self.logger = logging.getLogger()
         self.logger.setLevel(logging.INFO)
 
@@ -31,6 +40,14 @@ class DataSaving(object):
         ch.setFormatter(formatter)
         self.logger.addHandler(fh)
         self.logger.addHandler(ch)
+
+    def mongoConn(self):
+        '''MongoDB数据库的登录'''
+        if not self.mongo_login:
+            self.conn = pymongo.MongoClient(host=self.host, port=self.port)
+            self.db = self.conn[self.db_name]
+            self.db.authenticate(self.usr, self.pwd)
+            self.mongo_login = True
 
     @staticmethod
     def rtConn():
@@ -47,69 +64,179 @@ class DataSaving(object):
             w.start()
         return None
 
-    def getFuturesMinPriceFromWind(self, collection, ctr, frequency, **kwargs):
+    def getFuturesMinPriceFromWind(self, collection, ctr, frequency, save_mode='MongoDB', save_path=None, category=None,
+                                   **kwargs):
+
         self.windConn()
-        coll = self.db[collection]
-        coll_info = self.db['Information']
-        ptn = re.compile('\d+(?=min)')
-        freq = ptn.search(frequency).group()
-        queryArgs = {'wind_code': ctr, 'frequency': frequency}
-        projectionField = ['wind_code', 'date_time']
-        res = coll.find(queryArgs, projectionField).sort('date_time', pymongo.DESCENDING).limit(1)
-        res = list(res)
-        if not res:
-            queryArgs = {'wind_code': ctr}
-            projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
-            res_info = coll_info.find(queryArgs, projectionField)
-            res_info = list(res_info)
-            if not res_info:
-                start_time = datetime.today() - timedelta(days=1200)
+        # 如果是存到数据库
+        if save_mode in ['MongoDB', 'MongoDB CSV']:
+            self.mongoConn()
+            coll = self.db[collection]
+            coll_info = self.db['Information']
+            ptn = re.compile('\d+(?=min)')
+            freq = ptn.search(frequency).group()
+            queryArgs = {'wind_code': ctr, 'frequency': frequency}
+            projectionField = ['wind_code', 'date_time']
+            res = coll.find(queryArgs, projectionField).sort('date_time', pymongo.DESCENDING).limit(1)
+            res = list(res)
+
+            now_dttm = datetime.now()
+
+            # 第一次出现
+            if not res:
+                queryArgs = {'wind_code': ctr}
+                projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
+                res_info = coll_info.find(queryArgs, projectionField)
+                res_info = list(res_info)
+                # 主力合约
+                if not res_info:
+                    start_time = datetime.today() - timedelta(days=1200)
+                    start_time = start_time.replace(hour=9) - timedelta(minutes=1)
+
+                    if 6 < now_dttm.hour < 16:
+                        end_time = now_dttm.replace(hour=8, minute=0, second=0, microsecond=0)
+                    elif now_dttm.hour < 6:
+                        end_time = now_dttm.replace(day=now_dttm.day - 1, hour=16, minute=0, second=0, microsecond=0)
+                    else:
+                        end_time = now_dttm.replace(hour=16, minute=0, second=0, microsecond=0)
+
+
+                # 具体单个合约
+                else:
+                    start_time = res_info[0]['contract_issue_date']
+                    start_time = start_time.replace(hour=9) - timedelta(minutes=1)
+                    last_trade_date = res_info[0]['last_trade_date']
+                    last_trade_date.replace(hour=16) + timedelta(minutes=1)
+
+                    if 6 < now_dttm.hour < 16:
+                        end_time = min(now_dttm.replace(hour=8, minute=0, second=0, microsecond=0), last_trade_date)
+                    elif now_dttm.hour < 6:
+                        end_time = min(
+                            now_dttm.replace(day=now_dttm.day - 1, hour=16, minute=0, second=0, microsecond=0),
+                            last_trade_date)
+                    else:
+                        end_time = min(now_dttm.replace(hour=16, minute=0, second=0, microsecond=0), last_trade_date)
+
+
+
+            # 不是第一次出现
             else:
-                start_time = res_info[0]['contract_issue_date']
-            start_time = start_time.replace(hour=9) - timedelta(minutes=1)
+                start_time = res[0]['date_time'] + timedelta(minutes=1)
+                start_time = start_time.replace(hour=9) - timedelta(minutes=1)
+                if 6 < now_dttm.hour < 16:
+                    end_time = now_dttm.replace(hour=8, minute=0, second=0, microsecond=0)
+                elif now_dttm.hour < 6:
+                    end_time = now_dttm.replace(day=now_dttm.day - 1, hour=16, minute=0, second=0, microsecond=0)
+                else:
+                    end_time = now_dttm.replace(hour=16, minute=0, second=0, microsecond=0)
 
-        else:
-            start_time = res[0]['date_time'] + timedelta(minutes=1)
 
-        now_dttm = datetime.now()
-        if 6 < now_dttm.hour < 16:
-            end_time = now_dttm.replace(hour=8, minute=0, second=0, microsecond=0)
-        elif now_dttm.hour < 6:
-            end_time = now_dttm.replace(day=now_dttm.day - 1, hour=16, minute=0, second=0, microsecond=0)
-        else:
-            end_time = now_dttm.replace(hour=16, minute=0, second=0, microsecond=0)
+            if start_time > end_time:
+                return
+            res = w.wsi(ctr, "open,high,low,close,volume,amt,oi", beginTime=start_time, endTime=end_time)
+            if res.ErrorCode == -40520007 or res.ErrorCode == -40520017:
+                print(ctr, res.Data)
+                return
+            res_df = pd.DataFrame.from_dict(dict(zip(res.Fields, res.Data)))
+            res_df.index = res.Times
+            res_df.dropna(how='all', subset=['open', 'high', 'low', 'close'], inplace=True)
 
-        if start_time > end_time:
-            return
-        res = w.wsi(ctr, "open,high,low,close,volume,amt,oi", beginTime=start_time, endTime=end_time)
-        if res.ErrorCode == -40520007 or res.ErrorCode == -40520017:
-            print(ctr, res.Data)
-            return
-        res_df = pd.DataFrame.from_dict(dict(zip(res.Fields, res.Data)))
-        res_df.index = res.Times
-        res_df.dropna(how='all', subset=['open', 'high', 'low', 'close'], inplace=True)
+            res_df['wind_code'] = ctr
+            res_df['frequency'] = frequency
+            res_dict = res_df.to_dict(orient='index')
+            total = len(res_dict)
+            count = 1
+            self.logger.info(
+                u'抓取%s合约从%s到%s的%s分钟数据' % (ctr, start_time.strftime('%Y%m%d'), end_time.strftime('%Y%m%d'), freq))
+            for di in res_dict:
+                process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+                sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+                sys.stdout.flush()
 
-        res_df['wind_code'] = ctr
-        res_df['frequency'] = frequency
-        res_dict = res_df.to_dict(orient='index')
-        total = len(res_dict)
-        count = 1
-        self.logger.info(
-            u'抓取%s合约从%s到%s的%s分钟数据' % (ctr, start_time.strftime('%Y%m%d'), end_time.strftime('%Y%m%d'), freq))
-        for di in res_dict:
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+                dtemp = res_dict[di].copy()
+                dtemp['date_time'] = datetime.strptime(str(di), '%Y-%m-%d %H:%M:%S')
+                dtemp['update_time'] = datetime.now()
+                dtemp.update(kwargs)
+                coll.insert_one(dtemp)
+
+                count += 1
+            sys.stdout.write('\n')
             sys.stdout.flush()
+        # 如果是存到CSV
+        if save_mode in ['CSV', 'MongoDB CSV']:
+            if not save_path:
+                print(ctr)
+                raise Exception('没有提供保存的CSV路径save_path字段')
+            if not category:
+                print(ctr)
+                raise Exception('没有提供该合约的category字段')
+            path_new = os.path.join(save_path, collection, category)
+            if not os.path.exists(path_new):
+                os.makedirs(path_new)
+            file_path = os.path.join(path_new, '%s.csv' % ctr)
+            # 第一次生成
+            if not os.path.exists(file_path):
+                self.mongoConn()
+                coll_info = self.db['Information']
+                queryArgs = {'wind_code': ctr}
+                projectionField = ['wind_code', 'contract_issue_date', 'last_trade_date']
+                res_info = coll_info.find(queryArgs, projectionField)
+                res_info = list(res_info)
+                if not res_info:
+                    start_time = datetime.today() - timedelta(days=1200)
+                else:
+                    start_time = res_info[0]['contract_issue_date']
+                start_time = start_time.replace(hour=9) - timedelta(minutes=1)
 
-            dtemp = res_dict[di].copy()
-            dtemp['date_time'] = datetime.strptime(str(di), '%Y-%m-%d %H:%M:%S')
-            dtemp['update_time'] = datetime.now()
-            dtemp.update(kwargs)
-            coll.insert_one(dtemp)
+                now_dttm = datetime.now()
+                if 6 < now_dttm.hour < 16:
+                    end_time = now_dttm.replace(hour=8, minute=0, second=0, microsecond=0)
+                elif now_dttm.hour < 6:
+                    end_time = now_dttm.replace(day=now_dttm.day - 1, hour=16, minute=0, second=0, microsecond=0)
+                else:
+                    end_time = now_dttm.replace(hour=16, minute=0, second=0, microsecond=0)
 
-            count += 1
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+                if start_time > end_time:
+                    return
+                res = w.wsi(ctr, "open,high,low,close,volume,amt,oi", beginTime=start_time, endTime=end_time)
+                if res.ErrorCode == -40520007 or res.ErrorCode == -40520017:
+                    print(ctr, res.Data)
+                    return
+                res_df = pd.DataFrame.from_dict(dict(zip(res.Fields, res.Data)))
+                res_df.index = res.Times
+                res_df.index.name = 'date_time'
+                res_df['date'] = [dt.strftime('%Y-%m-%d') for dt in res_df.index]
+                res_df['time'] = [dt.strftime('%H:%M:%S') for dt in res_df.index]
+                res_df.dropna(how='all', subset=['open', 'high', 'low', 'close'], inplace=True)
+                self.logger.info('生成%s合约从%s到%s分钟数据的csv文件' % (ctr, res_df.index[0], res_df.index[-1]))
+                res_df.to_csv(file_path)
+            else:
+                df = pd.read_csv(file_path, index_col=0, parse_dates=True)
+                start_time = df.index[-1] + timedelta(minutes=1)
+                now_dttm = datetime.now()
+                if 6 < now_dttm.hour < 16:
+                    end_time = now_dttm.replace(hour=8, minute=0, second=0, microsecond=0)
+                elif now_dttm.hour < 6:
+                    end_time = now_dttm.replace(day=now_dttm.day - 1, hour=16, minute=0, second=0, microsecond=0)
+                else:
+                    end_time = now_dttm.replace(hour=16, minute=0, second=0, microsecond=0)
+
+                if start_time > end_time:
+                    return
+                res = w.wsi(ctr, "open,high,low,close,volume,amt,oi", beginTime=start_time, endTime=end_time)
+                if res.ErrorCode == -40520007 or res.ErrorCode == -40520017:
+                    print(ctr, res.Data)
+                    return
+                res_df = pd.DataFrame.from_dict(dict(zip(res.Fields, res.Data)))
+                res_df.index = res.Times
+                res_df.index.name = 'date_time'
+                res_df['date'] = [dt.strftime('%Y-%m-%d') for dt in res_df.index]
+                res_df['time'] = [dt.strftime('%H:%M:%S') for dt in res_df.index]
+                res_df.dropna(how='all', subset=['open', 'high', 'low', 'close'], inplace=True)
+                df = pd.concat((df, res_df))
+                self.logger.info('在csv文件中增加%s合约从%s到%s分钟数据' % (ctr, res_df.index[0], res_df.index[-1]))
+                df.to_csv(file_path)
+
 
     def getFuturesPriceFromTB(self, collection, ctr, path, frequency):
         coll = self.db[collection]
@@ -156,6 +283,7 @@ class DataSaving(object):
 
     def getFuturesOIRFromWind(self, collection, cmd, **kwargs):
         self.windConn()
+        self.mongoConn()
         coll = self.db[collection]
         coll_info = self.db['Information']
         coll_finished = self.db['FinishedContracts']
@@ -463,6 +591,7 @@ class DataSaving(object):
     def getFuturesInfoFromWind(self, collection, cmd, **kwargs):
         # 主要用于抓取wind里各合约的信息
         self.windConn()
+        self.mongoConn()
         coll = self.db[collection]
         ptn_1 = re.compile('\w+(?=\.)')
         res_1 = ptn_1.search(cmd).group()
@@ -515,6 +644,7 @@ class DataSaving(object):
 
     def getFuturePriceFromWind(self, collection, contract, alldaytrade, update=1, **kwargs):
         self.windConn()
+        self.mongoConn()
         coll = self.db['Information']
         finished_coll = self.db['FinishedContracts']
         queryArgs = {'wind_code': contract}
@@ -635,6 +765,7 @@ class DataSaving(object):
 
     def getFutureGroupPriceFromWind(self, collection, cmd, **kwargs):
 
+        self.mongoConn()
         # 为了提高从wind抓取数据的效率，将已经抓取好的合约名存到数据库中。这样就不用总是去检查是不是有新数据需要抓取。
 
         coll = self.db['Information']
@@ -689,6 +820,7 @@ class DataSaving(object):
 
     def getWSDFromWind(self, collection, cmd, fields, tradingcalendar, alldaytrade, **kwargs):
         self.windConn()
+        self.mongoConn()
         coll = self.db[collection]
         if coll.find_one({'wind_code': cmd}):
             queryArgs = {'wind_code': cmd}
@@ -746,6 +878,7 @@ class DataSaving(object):
 
     def getEDBFromWind(self, collection, edb_code, **kwargs):
         self.windConn()
+        self.mongoConn()
         coll = self.db[collection]
         if coll.find_one({'wind_code': edb_code}):
             queryArgs = {'wind_code': edb_code}
@@ -796,72 +929,243 @@ class DataSaving(object):
             sys.stdout.write('\n')
             sys.stdout.flush()
 
-    def getPriceFromRT(self, collection, cmd, type, **kwargs):
+    def getPriceFromRT(self, collection, cmd, data_type=None, interval='daily', save_mode='MongoDB', save_path=None,
+                       category=None, **kwargs):
         """
         futures是来判断是否抓取期货数据，涉及到字段问题
         这里的一个非常重要的问题就是交易时间
         比如现在北京时间凌晨1点，欧美交易所的时间仍是昨天，此时如果抓取数据，虽然是抓昨天的数据，但是交易依然在进行，所以此时会出错
         """
-
         if not ek.get_app_key():
             self.rtConn()
-        coll = self.db[collection]
 
-        if coll.find_one({'tr_code': cmd}):
-            queryArgs = {'tr_code': cmd}
-            projectionField = ['tr_code', 'date']
-            searchRes = coll.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
-            start_date = list(searchRes)[0]['date'] + timedelta(1)
-            end_date = datetime.today() - timedelta(1)
-        else:
-            start_date = datetime.strptime('2000-01-01', '%Y-%m-%d')
-            end_date = datetime.today() - timedelta(1)
+        print(cmd)
+        # 路透每回提取的数据最大只有50000条，如果要提取更多的数据，需要调整日期
+        max_items = 50000
+        if interval == 'daily':
+            max_periods = max_items
+            log_flag = '日度'
+            para_dict = {'days': 1}
 
-        if start_date > end_date:
-            return
+        elif interval == 'minute':
+            max_periods = int(max_items / 60 / 24) - 5
+            log_flag = '分钟'
+            para_dict = {'minutes': 1}
 
-        if type == 'futures':
-            fields = ['HIGH', 'LOW', 'OPEN', 'CLOSE', 'VOLUME']
-        elif type == 'swap' or type == 'spot':
-            fields = ['CLOSE']
-        elif type == 'foreign exchange':
-            fields = ['HIGH', 'LOW', 'OPEN', 'CLOSE', 'COUNT']
 
-        try:
-            res = ek.get_timeseries(cmd, start_date=start_date, end_date=end_date, fields=fields)
-        except ek.eikonError.EikonError as e:
-            print('更新路透%s数据出现错误' % cmd)
-            print(e)
-            return
 
-        if 'COUNT' in res.columns and 'COUNT' not in fields:
-            self.logger.info(u'抓取%s%s到%s数据失败，行情交易未结束，请稍后重试' % (cmd, start_date, end_date))
-            return
+        if save_mode in ['MongoDB', 'MongoDB CSV']:
 
-        unit_total = len(res.values.flatten())
-        self.logger.info(u'抓取%s%s到%s的数据，共计%d个' % (cmd, start_date, end_date, unit_total))
+            self.mongoConn()
 
-        res['tr_code'] = cmd
-        res_dict = res.to_dict(orient='index')
+            coll = self.db[collection]
 
-        total = len(res_dict)
-        count = 1
-        print(u'抓取路透%s合约的数据' % cmd)
-        for di in res_dict:
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+            if coll.find_one({'tr_code': cmd}):
+                queryArgs = {'tr_code': cmd}
+                queryArgs.update(kwargs)
+                projectionField = ['tr_code', 'date']
+                searchRes = coll.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
+                start_date = list(searchRes)[0]['date'] + timedelta(**para_dict)
+                end_date = datetime.today() - timedelta(1)
+                end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            else:
+                if interval == 'minute':
+                    start_date = datetime.today() - timedelta(days=400)
+                    start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+                elif interval == 'daily':
+                    start_date = datetime.strptime('2000-01-01', '%Y-%m-%d')
+                end_date = datetime.today() - timedelta(1)
+                end_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+
+            if start_date > end_date:
+                return
+
+            if data_type == 'futures':
+                fields_dict = {'fields': ['HIGH', 'LOW', 'OPEN', 'CLOSE', 'VOLUME']}
+            elif data_type == 'swap' or data_type == 'spot':
+                fields_dict = {'fields': ['CLOSE']}
+            elif data_type == 'foreign exchange':
+                fields_dict = {'fields': ['HIGH', 'LOW', 'OPEN', 'CLOSE', 'COUNT']}
+            else:
+                fields_dict = {}
+
+            if interval == 'minute':
+                fields_dict = {}
+
+
+            start_temp = start_date
+            end_temp = min(start_temp + timedelta(days=max_periods), end_date)
+
+            df_total = pd.DataFrame()
+
+            while True:
+                try:
+                    res = ek.get_timeseries(cmd, start_date=start_temp, end_date=end_temp, interval=interval,
+                                            **fields_dict)
+                    self.logger.info('从路透提取了%s合约%s到%s的%s数据' % (cmd, start_temp, end_temp, log_flag))
+                    df_total = pd.concat((df_total, res))
+                    start_temp = end_temp + timedelta(**para_dict)
+                    end_temp = min(start_temp + timedelta(days=max_periods), end_date)
+                    if start_temp >= end_temp:
+                        break
+
+                except ek.eikonError.EikonError as e:
+                    if 'No data available for the requested date range' in e.message:
+                        start_temp = end_temp + timedelta(**para_dict)
+                        end_temp = min(start_temp + timedelta(days=max_periods), end_date)
+                        if start_temp >= end_temp:
+                            break
+                        continue
+                    else:
+                        raise Exception(e)
+
+            unit_total = len(df_total.values.flatten())
+            self.logger.info(u'抓取%s%s到%s的数据，共计%d个' % (cmd, start_date, end_date, unit_total))
+
+            df_total['tr_code'] = cmd
+            total_dict = df_total.to_dict(orient='index')
+
+            total = len(total_dict)
+            count = 1
+            print(u'抓取路透%s合约的数据' % cmd)
+            for di in total_dict:
+                process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+                sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+                sys.stdout.flush()
+
+                dtemp = total_dict[di].copy()
+                dtemp['date'] = di
+                dtemp['update_time'] = datetime.now()
+                dtemp.update(kwargs)
+
+                coll.insert_one(dtemp)
+                count += 1
+
+            sys.stdout.write('\n')
             sys.stdout.flush()
 
-            dtemp = res_dict[di].copy()
-            dtemp['date'] = di
-            dtemp['update_time'] = datetime.now()
-            dtemp.update(kwargs)
+        elif save_mode in ['CSV', 'MongoDB CSV']:
+            if not save_path:
+                print(cmd)
+                raise Exception('没有提供保存的CSV路径save_path字段')
+            if not category:
+                print(cmd)
+                raise Exception('没有提供该合约的category字段')
+            path_new = os.path.join(save_path, collection, category)
+            if not os.path.exists(path_new):
+                os.makedirs(path_new)
+            file_path = os.path.join(path_new, '%s.csv' % cmd)
 
-            coll.insert_one(dtemp)
-            count += 1
+            if not os.path.exists(file_path):
+                if interval == 'minute':
+                    start_date = datetime.today() - timedelta(days=400)
+                    start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+                elif interval == 'daily':
+                    start_date = datetime.strptime('2000-01-01', '%Y-%m-%d')
+                end_date = datetime.today() - timedelta(days=1)
+                end_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
 
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+                start_temp = start_date
+                end_temp = min(start_temp + timedelta(days=max_periods), end_date)
+
+                df_total = pd.DataFrame()
+
+                while True:
+                    try:
+                        res = ek.get_timeseries(cmd, start_date=start_temp, end_date=end_temp, interval=interval)
+                        self.logger.info('从路透提取了%s合约%s到%s的%s数据' % (cmd, start_temp, end_temp, log_flag))
+                        df_total = pd.concat((df_total, res))
+                        start_temp = end_temp + timedelta(**para_dict)
+                        end_temp = min(start_temp + timedelta(days=max_periods), end_date)
+                        if start_temp >= end_temp:
+                            break
+
+                    except ek.eikonError.EikonError as e:
+                        if 'No data available for the requested date range' in e.message:
+                            start_temp = end_temp + timedelta(**para_dict)
+                            end_temp = min(start_temp + timedelta(days=max_periods), end_date)
+                            if start_temp >= end_temp:
+                                break
+                            continue
+                        else:
+                            raise Exception(e)
+                    except ValueError as e:
+                        if 'Empty data passed with indices specified' in e.args[0]:
+                            self.logger.info('在%s到%s时间段内%s没有数据' % (start_temp, end_temp, cmd))
+                            start_temp = end_temp + timedelta(**para_dict)
+                            end_temp = min(start_temp + timedelta(days=max_periods), end_date)
+                            if start_temp >= end_temp:
+                                break
+                            continue
+                        else:
+                            raise Exception(e)
+
+                if not df_total.empty:
+                    df_total.to_csv(file_path)
+                    self.logger.info('生成了%s合约的%s数据CSV文件' % (cmd, log_flag))
+
+
+
+                # try:
+                #     res = ek.get_timeseries(cmd, start_date=start_date, end_date=end_date, interval=interval)
+                #     print(res)
+                # except ek.eikonError.EikonError as e:
+                #     print('更新路透%s数据出现错误' % cmd)
+                #     print(e)
+                #     return
+
+            else:
+                # 如果文件小于100M，直接读取
+                if (os.path.getsize(file_path) / 1024 / 1024) < 100.:
+                    df = pd.read_csv(file_path, index_col=0, parse_dates=True)
+                    columns_list = df.columns
+                    exists_dt = df.index[-1]
+                    exists_dt = exists_dt.to_pydatetime()
+
+                    start_date = exists_dt + timedelta(**para_dict)
+                    end_date = datetime.today() - timedelta(days=1)
+                    end_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+
+                    start_temp = start_date
+                    end_temp = min(start_temp + timedelta(days=max_periods), end_date)
+
+                    df_total = pd.DataFrame()
+
+                    while True:
+                        try:
+                            res = ek.get_timeseries(cmd, start_date=start_temp, end_date=end_temp, interval=interval)
+                            res = res[columns_list]
+                            self.logger.info('从路透提取了%s合约%s到%s的%s数据' % (cmd, start_temp, end_temp, log_flag))
+                            df_total = pd.concat((df_total, res))
+                            start_temp = end_temp + timedelta(**para_dict)
+                            end_temp = min(start_temp + timedelta(days=max_periods), end_date)
+                            if start_temp >= end_temp:
+                                break
+
+                        except ek.eikonError.EikonError as e:
+                            if 'No data available for the requested date range' in e.message:
+                                start_temp = end_temp + timedelta(**para_dict)
+                                end_temp = min(start_temp + timedelta(days=max_periods), end_date)
+                                if start_temp >= end_temp:
+                                    break
+                                continue
+                            else:
+                                raise Exception(e)
+                        except ValueError as e:
+                            if 'Empty data passed with indices specified' in e.args[0]:
+                                self.logger.info('在%s到%s时间段内%s没有数据' % (start_temp, end_temp, cmd))
+                                start_temp = end_temp + timedelta(**para_dict)
+                                end_temp = min(start_temp + timedelta(days=max_periods), end_date)
+                                if start_temp >= end_temp:
+                                    break
+                                continue
+                            else:
+                                raise Exception(e)
+
+
+                    if not df_total.empty:
+                        df_total.to_csv(file_path, mode='a', header=False)
+                        self.logger.info('修改了%s合约的%s数据CSV文件' % (cmd, log_flag))
 
         return
 
@@ -869,6 +1173,7 @@ class DataSaving(object):
         """
         从csv文件中导入数据到数据库
         """
+        self.mongoConn()
         coll = self.db[collection]
         df = pd.read_csv(path, index_col=0, parse_dates=True)
         print(cmd)
@@ -987,6 +1292,7 @@ class DataSaving(object):
 
     def getDateSeries(self, collection, cmd, **kwargs):
         """从WIND导入交易日期时间序列"""
+        self.mongoConn()
         self.windConn()
         coll = self.db[collection]
         if coll.find_one({'exchange': cmd}):
@@ -1028,6 +1334,7 @@ class DataSaving(object):
         sys.stdout.flush()
 
     def combineMainContract(self, collection, cmd, method, month_list=range(1, 13)):
+        self.mongoConn()
         source = self.db['FuturesMD']  # 期货市场价格表
         target = self.db[collection]
         info_source = self.db['Information']  # 期货合约信息表

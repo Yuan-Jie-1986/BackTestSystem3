@@ -16,7 +16,7 @@ pd.set_option('display.width', 200)
 cmd_list = ['M.DCE', 'L.DCE', 'PP.DCE', 'I.DCE', 'J.DCE', 'JM.DCE', 'C.DCE', 'RB.SHF', 'BU.SHF', 'RU.SHF', 'NI.SHF',
             'HC.SHF', 'TA.CZC', 'MA.CZC', 'AP.CZC', 'ZC.CZC', 'SR.CZC', 'RM.CZC', 'SC.INE', 'EG.DCE', 'SP.SHF',
             'FG.CZC', 'V.DCE', 'CU.SHF', 'AL.SHF', 'AG.SHF', 'AU.SHF', 'FU.SHF', 'IF.CFE', 'IH.CFE', 'IC.CFE', 'ZN.SHF',
-            'PB.SHF', 'SN.SHF', 'EB.DCE']
+            'PB.SHF', 'SN.SHF', 'EB.DCE', 'Y.DCE', 'P.DCE', 'CF.CZC', 'OI.CZC']
 
 conn = pymongo.MongoClient(host='192.168.1.172', port=27017)
 db = conn['CBNB']
