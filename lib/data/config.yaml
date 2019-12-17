@@ -12,11 +12,11 @@ log_path: "E:\\CBNB\\BackTestSystem3\\data_saving.log"
 
 collection:
 #  - Information
-#  - FuturesMinMD
+  - FuturesMinMD
 #  - FuturesMD
-  - SpotMD
-  - EDB
-  - Inventory
+#  - SpotMD
+#  - EDB
+#  - Inventory
 #  - ImExport
 #  - OperationRate
 #  - FuturesOIR
@@ -64,40 +64,40 @@ FuturesMinMD:
     source: WIND
     frequency: 1min
     func: getFuturesMinPriceFromWind
-    save_mode: MongoDB CSV
-    save_path: "E:\\CBNB\\BackTestSystem3\\bt_data\\"
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: RB.SHF
     cmd: [RB.SHF, RB2001.SHF, RB2005.SHF, RB2010.SHF]
 
   - source: WIND
     frequency: 1min
     func: getFuturesMinPriceFromWind
-    save_mode: MongoDB CSV
-    save_path: "E:\\CBNB\\BackTestSystem3\\bt_data\\"
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: HC.SHF
     cmd: [HC.SHF, HC2001.SHF, HC2005.SHF, HC2010.SHF]
 
   - source: WIND
     frequency: 1min
     func: getFuturesMinPriceFromWind
-    save_mode: MongoDB CSV
-    save_path: "E:\\CBNB\\BackTestSystem3\\bt_data\\"
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: I.DCE
     cmd: [I.DCE, I2001.DCE, I2005.DCE, I2009.DCE]
 
   - source: WIND
     frequency: 1min
     func: getFuturesMinPriceFromWind
-    save_mode: MongoDB CSV
-    save_path: "E:\\CBNB\\BackTestSystem3\\bt_data\\"
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: J.DCE
     cmd: [J.DCE, J2001.DCE, J2005.DCE, J2009.DCE]
 
   - source: WIND
     frequency: 1min
     func: getFuturesMinPriceFromWind
-    save_mode: MongoDB CSV
-    save_path: "E:\\CBNB\\BackTestSystem3\\bt_data\\"
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: JM.DCE
     cmd: [JM.DCE, JM2001.DCE, JM2005.DCE, JM2009.DCE]
 
@@ -105,40 +105,40 @@ FuturesMinMD:
   - source: WIND
     frequency: 1min
     func: getFuturesMinPriceFromWind
-    save_mode: MongoDB CSV
-    save_path: "E:\\CBNB\\BackTestSystem3\\bt_data\\"
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: L.DCE
     cmd: [L.DCE, L2001.DCE, L2005.DCE, L2009.DCE]
 
   - source: WIND
     frequency: 1min
     func: getFuturesMinPriceFromWind
-    save_mode: MongoDB CSV
-    save_path: "E:\\CBNB\\BackTestSystem3\\bt_data\\"
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: PP.DCE
     cmd: [PP.DCE, PP2001.DCE, PP2005.DCE, PP2009.DCE]
 
   - source: WIND
     frequency: 1min
     func: getFuturesMinPriceFromWind
-    save_mode: MongoDB CSV
-    save_path: "E:\\CBNB\\BackTestSystem3\\bt_data\\"
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: BU.SHF
     cmd: [BU.SHF, BU2006.SHF, BU1912.SHF]
 
   - source: WIND
     frequency: 1min
     func: getFuturesMinPriceFromWind
-    save_mode: MongoDB CSV
-    save_path: "E:\\CBNB\\BackTestSystem3\\bt_data\\"
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: V.DCE
     cmd: [V.DCE, V2001.DCE, V2005.DCE, V2009.DCE]
 
   - source: WIND
     frequency: 1min
     func: getFuturesMinPriceFromWind
-    save_mode: MongoDB CSV
-    save_path: "E:\\CBNB\\BackTestSystem3\\bt_data\\"
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: TA.CZC
     cmd: [TA.CZC, TA001.CZC, TA005.CZC, TA009.CZC]
 
@@ -146,8 +146,8 @@ FuturesMinMD:
   - source: WIND
     frequency: 1min
     func: getFuturesMinPriceFromWind
-    save_mode: MongoDB CSV
-    save_path: "E:\\CBNB\\BackTestSystem3\\bt_data\\"
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: MA.CZC
     cmd: [MA.CZC, MA001.CZC, MA005.CZC, MA009.CZC]
 
@@ -155,25 +155,75 @@ FuturesMinMD:
   - source: WIND
     frequency: 1min
     func: getFuturesMinPriceFromWind
-    save_mode: MongoDB CSV
-    save_path: "E:\\CBNB\\BackTestSystem3\\bt_data\\"
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: ZC.CZC
     cmd: [ZC.CZC, ZC001.CZC, ZC005.CZC, ZC009.CZC]
 
   - source: WIND
     frequency: 1min
     func: getFuturesMinPriceFromWind
-    save_mode: MongoDB CSV
-    save_path: "E:\\CBNB\\BackTestSystem3\\bt_data\\"
-    category: FG.CZC
-    cmd: [FG.CZC, FG001.CZC, FG005.CZC, FG009.CZC]
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
+    category: EG.DCE
+    cmd: [EG.DCE, EG2001.DCE, EG2005.DCE, EG2009.DCE]
 
-#    cmd: [CU.SHF, AL.SHF, ZN.SHF, NI.SHF, SN.SHF, PB.SHF, AU.SHF, AG.SHF, RB.SHF, I.DCE, J.DCE, JM.DCE, L.DCE, PP.DCE,
-#          BU.SHF, V.DCE, HC.SHF, RB2005.SHF, RB1910.SHF, RB2001.SHF, I2005.DCE, I2009.DCE, I2001.DCE, J2005.DCE,
-#          J2009.DCE, J2001.DCE, JM2005.DCE, JM2009.DCE, JM2001.DCE, L2005.DCE, L2009.DCE, L2001.DCE, PP2005.DCE,
-#          PP2009.DCE, PP2001.DCE, BU2006.SHF, BU1912.SHF, V2005.DCE, V2009.DCE, V2001.DCE, HC2005.SHF, HC1910.SHF,
-#          HC2001.SHF, TA.CZC, MA.CZC, ZC.CZC, FG.CZC, TA005.CZC, TA909.CZC, TA001.CZC, MA005.CZC, MA009.CZC, MA001.CZC,
-#          ZC005.CZC, ZC009.CZC, ZC001.CZC, FG005.CZC, FG009.CZC, FG001.CZC, SC.INE]
+  - source: WIND
+    frequency: 1min
+    func: getFuturesMinPriceFromWind
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
+    category: RU.SHF
+    cmd: [RU.SHF, RU2001.SHF, RU2005.SHF, RU2009.SHF]
+
+  - source: WIND
+    frequency: 1min
+    func: getFuturesMinPriceFromWind
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
+    category: CU.SHF
+    cmd: [CU.SHF, CU1912.SHF, CU2001.SHF, CU2002.SHF, CU2003.SHF, CU2004.SHF]
+
+  - source: WIND
+    frequency: 1min
+    func: getFuturesMinPriceFromWind
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
+    category: AL.SHF
+    cmd: [AL.SHF, AL1912.SHF, AL2001.SHF, AL2002.SHF, AL2003.SHF, AL2004.SHF]
+
+  - source: WIND
+    frequency: 1min
+    func: getFuturesMinPriceFromWind
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
+    category: ZN.SHF
+    cmd: [ZN.SHF, ZN1912.SHF, ZN2001.SHF, ZN2002.SHF, ZN2003.SHF, ZN2004.SHF]
+
+  - source: WIND
+    frequency: 1min
+    func: getFuturesMinPriceFromWind
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
+    category: NI.SHF
+    cmd: [NI.SHF, NI1912.SHF, NI2001.SHF, NI2002.SHF, NI2003.SHF, NI2004.SHF]
+
+  - source: WIND
+    frequency: 1min
+    func: getFuturesMinPriceFromWind
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
+    category: AU.SHF
+    cmd: [AU.SHF, AU1912.SHF, AU2002.SHF, AU2004.SHF, AU2006.SHF]
+
+  - source: WIND
+    frequency: 1min
+    func: getFuturesMinPriceFromWind
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
+    category: AG.SHF
+    cmd: [AG.SHF, AG1912.SHF, AG2002.SHF, AG2004.SHF, AG2006.SHF]
+
 
   -
     source: ThomsonReuters
@@ -181,7 +231,7 @@ FuturesMinMD:
     frequency: 1min
     interval: minute
     save_mode: CSV
-    save_path: "E:\\CBNB\\BackTestSystem3\\bt_data\\"
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: LCO
     data_type: futures
     cmd: [LCOc1, LCOc2, LCOc3, LCOc4, LCOc5, LCOc6, LCOG0, LCOH0, LCOJ0, LCOK0, LCOM0, LCON0, LCOQ0, LCOU0, LCOV0,
@@ -193,13 +243,34 @@ FuturesMinMD:
     frequency: 1min
     interval: minute
     save_mode: CSV
-    save_path: "E:\\CBNB\\BackTestSystem3\\bt_data\\"
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: CL
     data_type: futures
     cmd: [CLc1, CLc2, CLc3, CLc4, CLc5, CLc6, CLF0, CLG0, CLH0, CLJ0, CLK0, CLM0, CLN0, CLQ0, CLU0, CLV0, CLX0, CLZ0,
           CLF1, CLG1, CLH1, CLJ1, CLK1, CLM1, CLN1, CLQ1, CLU1, CLV1, CLX1, CLZ1, CLF2, CLG2, CLH2, CLJ2, CLK2, CLM2,
           CLN2, CLQ2, CLU2, CLV2, CLX2, CLZ2]
 
+  - source: ThomsonReuters
+    func: getPriceFromRT
+    frequency: 1min
+    interval: minute
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
+    category: GC
+    data_type: futures
+    cmd: [GCc1, GCc2, GCc3, GCc4, GCc5, GCc6, GCZ9, GCF0, GCG0, GCJ0, GCM0, GCQ0, GCV0, GCZ0, GCG1, GCJ1, GCM1, GCQ1,
+          GCV1, GCZ1]
+
+  - source: ThomsonReuters
+    func: getPriceFromRT
+    frequency: 1min
+    interval: minute
+    save_mode: CSV
+    save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
+    category: SI
+    data_type: futures
+    cmd: [SIc1, SIc2, SIc3, SIc4, SIc5, SIc6, SIZ9, SIF0, SIG0, SIH0, SIK0, SIN0, SIU0, SIZ0, SIF1, SIH1, SIK1, SIN1,
+          SIU1, SIZ1]
 
 FuturesMD:
   -

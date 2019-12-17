@@ -225,7 +225,7 @@ class DataSaving(object):
                     return
                 res = w.wsi(ctr, "open,high,low,close,volume,amt,oi", beginTime=start_time, endTime=end_time)
                 if res.ErrorCode == -40520007 or res.ErrorCode == -40520017:
-                    print(ctr, res.Data)
+                    self.logger.info('%s合约出现了%sWIND错误' % (ctr, res.Data))
                     return
                 res_df = pd.DataFrame.from_dict(dict(zip(res.Fields, res.Data)))
                 res_df.index = res.Times
@@ -233,6 +233,9 @@ class DataSaving(object):
                 res_df['date'] = [dt.strftime('%Y-%m-%d') for dt in res_df.index]
                 res_df['time'] = [dt.strftime('%H:%M:%S') for dt in res_df.index]
                 res_df.dropna(how='all', subset=['open', 'high', 'low', 'close'], inplace=True)
+                if res_df.empty:
+                    self.logger.info('在%s到%s的时间段内%s合约没有数据' % (start_time, end_time, ctr))
+                    return
                 df = pd.concat((df, res_df))
                 self.logger.info('在csv文件中增加%s合约从%s到%s分钟数据' % (ctr, res_df.index[0], res_df.index[-1]))
                 df.to_csv(file_path)
@@ -1128,6 +1131,9 @@ class DataSaving(object):
 
                     start_temp = start_date
                     end_temp = min(start_temp + timedelta(days=max_periods), end_date)
+
+                    if start_temp > end_temp:
+                        return
 
                     df_total = pd.DataFrame()
 
