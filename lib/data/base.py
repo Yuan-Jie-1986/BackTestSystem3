@@ -227,18 +227,28 @@ class DataSaving(object):
                 if res.ErrorCode == -40520007 or res.ErrorCode == -40520017:
                     self.logger.info('%s合约出现了%sWIND错误' % (ctr, res.Data))
                     return
-                res_df = pd.DataFrame.from_dict(dict(zip(res.Fields, res.Data)))
-                res_df.index = res.Times
-                res_df.index.name = 'date_time'
-                res_df['date'] = [dt.strftime('%Y-%m-%d') for dt in res_df.index]
-                res_df['time'] = [dt.strftime('%H:%M:%S') for dt in res_df.index]
-                res_df.dropna(how='all', subset=['open', 'high', 'low', 'close'], inplace=True)
-                if res_df.empty:
-                    self.logger.info('在%s到%s的时间段内%s合约没有数据' % (start_time, end_time, ctr))
+                elif res.ErrorCode == -40520008:
+                    self.logger.info('万得登陆超时，请重新登陆')
                     return
-                df = pd.concat((df, res_df))
-                self.logger.info('在csv文件中增加%s合约从%s到%s分钟数据' % (ctr, res_df.index[0], res_df.index[-1]))
-                df.to_csv(file_path)
+
+                try:
+                    res_df = pd.DataFrame.from_dict(dict(zip(res.Fields, res.Data)))
+                    res_df.index = res.Times
+                    res_df.index.name = 'date_time'
+                    res_df['date'] = [dt.strftime('%Y-%m-%d') for dt in res_df.index]
+                    res_df['time'] = [dt.strftime('%H:%M:%S') for dt in res_df.index]
+                    res_df.dropna(how='all', subset=['open', 'high', 'low', 'close'], inplace=True)
+                    if res_df.empty:
+                        self.logger.info('在%s到%s的时间段内%s合约没有数据' % (start_time, end_time, ctr))
+                        return
+                    df = pd.concat((df, res_df))
+                    self.logger.info('在csv文件中增加%s合约从%s到%s分钟数据' % (ctr, res_df.index[0], res_df.index[-1]))
+                    df.to_csv(file_path)
+                except Exception as e:
+                    print(ctr)
+                    print(res)
+                    print(res_df)
+                    raise Exception('%s出现问题。' % ctr + e.message)
 
 
     def getFuturesPriceFromTB(self, collection, ctr, path, frequency):
@@ -897,10 +907,7 @@ class DataSaving(object):
             return
         res = w.edb(edb_code, start_date, end_date, 'Fill=previous')
 
-        if res.ErrorCode != 0:
-            print(res)
-            raise Exception(u'WIND提取数据出现了错误')
-        else:
+        if res.ErrorCode == 0:
             unit_total = len(res.Data[0]) * len(res.Fields)
             self.logger.info(u'抓取EDB%s数据%s到%s的数据，共计%d个' % (edb_code, start_date, end_date, unit_total))
             dict_res = dict(zip(res.Fields, res.Data))
@@ -919,7 +926,7 @@ class DataSaving(object):
 
                 # 该判断是必要的，因为如果日期是之后的，而数据没有，edb方法会返回最后一个数据
                 if coll.find_one({'wind_code': edb_code, 'date': datetime.strptime(str(di), '%Y-%m-%d')}):
-                    self.logger.info(u'该数据已经存在于数据库中，没有抓取')
+                    self.logger.info(u'%s该数据已经存在于数据库中，没有抓取' % edb_code)
                     continue
 
                 dtemp = df2dict[di].copy()
@@ -931,6 +938,16 @@ class DataSaving(object):
 
             sys.stdout.write('\n')
             sys.stdout.flush()
+
+        elif res.ErrorCode == -40521008:
+            print(edb_code)
+            print(res)
+            self.logger.info('%s该数据没有最新数据' % edb_code)
+        else:
+            print(edb_code)
+            print(res)
+            raise Exception(u'WIND提取数据出现了错误')
+
 
     def getPriceFromRT(self, collection, cmd, data_type=None, interval='daily', save_mode='MongoDB', save_path=None,
                        category=None, **kwargs):
@@ -1019,6 +1036,12 @@ class DataSaving(object):
                         if start_temp >= end_temp:
                             break
                         continue
+                    elif 'Error code 401 | Client Error: Eikon API Proxy requires authentication' in e.message:
+                        self.logger.info('路透终端没有登录')
+                        return
+                    elif 'Error code 401 | Eikon Proxy not installed or not running' in e.message:
+                        self.logger.info('路透终端没有登录')
+                        return
                     else:
                         raise Exception(e)
 
@@ -1090,6 +1113,9 @@ class DataSaving(object):
                             if start_temp >= end_temp:
                                 break
                             continue
+                        elif 'Error code 401 | Client Error: Eikon API Proxy requires authentication' in e.message:
+                            self.logger.info('路透终端没有登录')
+                            return
                         else:
                             raise Exception(e)
                     except ValueError as e:
@@ -1155,6 +1181,14 @@ class DataSaving(object):
                                 if start_temp >= end_temp:
                                     break
                                 continue
+                            elif 'Invalid RIC' in e.message:
+                                self.logger.info('%s代码已经无效，该合约可能已经到期，请检查' % cmd)
+                                break
+
+                            elif 'Error code 401 | Client Error: Eikon API Proxy requires authentication' in e.message:
+                                self.logger.info('路透终端没有登录')
+                                return
+
                             else:
                                 raise Exception(e)
                         except ValueError as e:
