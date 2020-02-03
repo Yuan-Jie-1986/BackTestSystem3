@@ -1335,43 +1335,96 @@ class DataSaving(object):
         self.mongoConn()
         self.windConn()
         coll = self.db[collection]
+        # 如果已经有了日期数据，这里是需要重新抓当年年份和下一年年份的数据
+        # 当前年份是针对12月最后一天是否为假期，因为这一天是由次年元旦来决定的
+
         if coll.find_one({'exchange': cmd}):
             queryArgs = {'exchange': cmd}
             projectionField = ['date']
             searchRes = coll.find(queryArgs, projectionField).sort('date', pymongo.DESCENDING).limit(1)
-            start_date = list(searchRes)[0]['date'] + timedelta(1)
+            exist_date = list(searchRes)[0]['date']
             current_year = datetime.today().year
-            end_date = datetime(current_year + 1, 12, 31)
-            # 这里有个问题是每到年末的时候都要重新刷一遍下一年的数据，因为下一年的节假日没有包含在里面，需要去数据库里删除掉
+            current_month = datetime.today().month
+
+            # 为了防止出现在不同时间点上无法更新当年最后一天是不是交易日
+            start_date = datetime(min(current_year, exist_date.year), 1, 1)
+
+            if current_month > 11:
+                end_date = datetime(current_year + 1, 12, 31)
+            else:
+                end_date = datetime(current_year, 12, 31)
+
+            queryArgs = {'exchange': cmd, 'date': {'$gte': start_date, '$lte': end_date}}
+            projectionField = ['date']
+            searchRes = coll.find(queryArgs, projectionField).sort('date', pymongo.ASCENDING)
+            df_exist = pd.DataFrame.from_records(searchRes)
+            df_exist.index = df_exist['date']
+            df_exist.drop(columns='_id', inplace=True)
+
+            if cmd == 'SHSE':
+                res = w.tdays(beginTime=start_date, endTime=end_date)
+
+            else:
+                res = w.tdays(beginTime=start_date, endTime=end_date, TradingCalendar=cmd)
+
+            df_res = pd.DataFrame({'date': res.Data[0]}, index=res.Times)
+            df_total = df_res.join(df_exist, how='outer', lsuffix='New', rsuffix='Old')
+            df_total['isEqual'] = df_total['dateNew'] == df_total['dateOld']
+
+            # 出现不同的交易日期
+            df_diff = df_total[~df_total['isEqual']]
+
+            if df_diff.empty:
+                return
+            else:
+                # 对于dateOld中要删除，dateNew中的要增加
+                for i in df_diff['dateOld']:
+                    if pd.isna(i):
+                        continue
+                    queryArgs = {'exchange': cmd, 'date': i}
+                    self.logger.info('删除了%s的错误的交易日期%s' % (cmd, i))
+                    delete_record = coll.delete_many(queryArgs)
+                    if delete_record.deleted_count != 1:
+                        raise Exception('删除了%s多个日期%s' % (cmd, i))
+                for i in df_diff['dateNew']:
+                    if pd.isna(i):
+                        continue
+                    res_dict = {'date': i, 'exchange': cmd, 'update_time': datetime.now()}
+                    res_dict.update(kwargs)
+                    self.logger.info('增加了%s的交易日期%s' % (cmd, i))
+                    coll.insert_one(res_dict)
+
         else:
             start_date = datetime.strptime('2000-01-01', '%Y-%m-%d')
             current_year = datetime.today().year
-            end_date = datetime(current_year + 1, 12, 31)
+            current_month = datetime.today().month
+            if current_month > 11:
+                end_date = datetime(current_year + 1, 12, 31)
+            else:
+                end_date = datetime(current_year, 12, 31)
 
-        if start_date > end_date:
-            return
+            if cmd == 'SHSE':
+                res = w.tdays(beginTime=start_date, endTime=end_date)
+            else:
+                res = w.tdays(beginTime=start_date, endTime=end_date, TradingCalendar=cmd)
 
-        if cmd == 'SHSE':
-            res = w.tdays(beginTime=start_date, endTime=end_date)
-        else:
-            res = w.tdays(beginTime=start_date, endTime=end_date, TradingCalendar=cmd)
+            total = len(res.Data[0])
+            # count = 1
 
-        total = len(res.Data[0])
-        count = 1
+            print(u'更新交易日期数据')
 
-        print(u'更新交易日期数据')
-        self.logger.info(u'共更新了%s个交易日期数据进入到数据库' % total)
-        for r in res.Data[0]:
-            process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
-            sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
-            sys.stdout.flush()
-            res_dict = {'date': r, 'exchange': cmd, 'update_time': datetime.now()}
-            res_dict.update(kwargs)
-            coll.insert_one(res_dict)
-            count += 1
-
-        sys.stdout.write('\n')
-        sys.stdout.flush()
+            for r in res.Data[0]:
+                # process_str = '>' * int(count * 100. / total) + ' ' * (100 - int(count * 100. / total))
+                # sys.stdout.write('\r' + process_str + u'【已完成%5.2f%%】' % (count * 100. / total))
+                # sys.stdout.flush()
+                res_dict = {'date': r, 'exchange': cmd, 'update_time': datetime.now()}
+                res_dict.update(kwargs)
+                self.logger.info('插入了%s的交易日期%s' % (cmd, r))
+                coll.insert_one(res_dict)
+                # count += 1
+            self.logger.info(u'共更新了%s个交易日期数据进入到数据库' % total)
+            # sys.stdout.write('\n')
+            # sys.stdout.flush()
 
     def combineMainContract(self, collection, cmd, method, month_list=range(1, 13)):
         self.mongoConn()
