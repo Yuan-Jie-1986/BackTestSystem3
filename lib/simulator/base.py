@@ -530,6 +530,8 @@ class BacktestSys(object):
                     d.setdefault('margin_ratio', 1)
                     d.setdefault('trade_unit', 1)
                     d.setdefault('bt_mode', 'OPEN')
+                    if d['bt_mode'] not in d['fields']:
+                        d['fields'].append(d['bt_mode'])
                     if 'tcost' in d and d['tcost'] == 1 and 'cost_mode' not in d:
                         d['tcost'] = 0
 
@@ -610,6 +612,13 @@ class BacktestSys(object):
         for sub_class in self.data:
             for d in self.data[sub_class]:
                 self.data[sub_class][d].rearrange_ts_data(self.dt)
+                # 对数据进行向后填充，如果不需要，注释下面4行
+                for obj_n in self.data[sub_class][d].ts_data_field:
+                    self.data[sub_class][d].fillna_ts_data(obj_name=obj_n, method='ffill')
+                for obj_n in self.data[sub_class][d].ts_string_field:
+                    self.data[sub_class][d].fillna_ts_data(obj_name=obj_n, method='ffill')
+
+
 
         # 根据交易日期序列重新整理汇率，并且先向后填充，然后再向前填充
         for k in self.exchange_func:
@@ -645,7 +654,7 @@ class BacktestSys(object):
             holdingsObj.adjust_holdings_turnover(self.turnover)
 
         for h in holdingsObj.asset:
-            if self.data['bt_price'][h].bt_mode == 'OPEN':
+            if self.data['bt_price'][h].bt_mode in ['OPEN', 'SETTLE']:
                 # 如果是开盘价进行交易，则将初始持仓向后平移一位
                 holdingsObj.shift_holdings(mode='single', label=h)
 
@@ -696,7 +705,7 @@ class BacktestSys(object):
         # 计算出各合约做1手的合约价值
         cls_df = pd.DataFrame()
         for k, v in self.data['bt_price'].items():
-            if hasattr(v, 'CLOSE') and (v.bt_mode == 'OPEN' or v.bt_mode == 'CLOSE'):
+            if hasattr(v, 'CLOSE') and (v.bt_mode in ['OPEN', 'CLOSE', 'SETTLE']):
                 price = v.CLOSE
             else:
                 price = getattr(v, v.bt_mode)
@@ -1009,7 +1018,7 @@ class BacktestSys(object):
 
             # 计算一手该合约的合约价值
             dataObj_k = self.data['bt_price'][k]
-            if hasattr(dataObj_k, 'CLOSE') and (dataObj_k.bt_mode == 'OPEN' or dataObj_k.bt_mode == 'CLOSE'):
+            if hasattr(dataObj_k, 'CLOSE') and (dataObj_k.bt_mode in ['OPEN', 'CLOSE', 'SETTLE']):
                 price = dataObj_k.CLOSE
             else:
                 price = getattr(dataObj_k, dataObj_k.bt_mode)
@@ -1121,7 +1130,7 @@ class BacktestSys(object):
                     if bt_price[h].switch:
                         mkdata[h].update({'switch_contract': bt_price[h].switch_contract[i],
                                           'specific_contract': bt_price[h].specific_contract[i - 1]})
-                        # 如果switch_contract为True，需要前主力合约的OPEN
+                        # 如果switch_contract为True，需要前主力合约的OPEN或者SETTLE
                         if mkdata[h]['switch_contract'] and ~np.isnan(mkdata[h]['switch_contract']):
                             # 这里需要注意的是np.nan也会判断为true，所以需要去掉
                             # 比如MA.CZC在刚开始的时候是没有specific_contract
@@ -1129,7 +1138,7 @@ class BacktestSys(object):
                             # if np.isnan(mkdata[h]['switch_contract']):
                             #     raise Exception('adsfasdfasdfsafsa')
                             queryArgs = {'wind_code': mkdata[h]['specific_contract'], 'date': self.dt[i]}
-                            projectionField = ['OPEN']
+                            projectionField = [bt_price[h].bt_mode]
                             table = self.db['FuturesMD']
                             if mkdata[h]['specific_contract'] == 'nan':
                                 # 对于MA.CZC, ZC.CZC的品种，之前没有specific_contract字段，使用前一交易日的收盘价
@@ -1138,11 +1147,11 @@ class BacktestSys(object):
                                 old_open = price[i - 1]
                                 old_open_exrate = getattr(self, self.exchange_func[bt_price[h].unit_change]).CLOSE[i - 1]
                             elif table.find_one(queryArgs, projectionField):
-                                old_open = table.find_one(queryArgs, projectionField)['OPEN']
+                                old_open = table.find_one(queryArgs, projectionField)[bt_price[h].bt_mode]
                                 old_open_exrate = getattr(self, self.exchange_func[bt_price[h].unit_change]).CLOSE[i]
                                 if np.isnan(old_open):
-                                    print('%s因为该合约当天没有交易，在%s使用前一天的收盘价作为换约平仓的价格' % \
-                                          (mkdata[h]['specific_contract'], self.dt[i].strftime('%Y%m%d')))
+                                    print('%s因为该合约当天没有%s价格，在%s使用前一天的收盘价作为换约平仓的价格' % \
+                                          (mkdata[h]['specific_contract'], bt_price[h].bt_mode, self.dt[i].strftime('%Y%m%d')))
                                     # 这样的处理方法有个问题，在实盘的交易中无法实现这样的操作。这里只是回测时的处理方法
                                     old_open = mkdata[h]['PRECLOSE']
                                     old_open_exrate = mkdata[h]['PRECLOSE_ExRate']
@@ -1286,7 +1295,7 @@ class BacktestSys(object):
                 #     v[i] = v[i-1]
                 #     continue
 
-                # 如果当天涉及到移仓，需要将昨天的仓位先平掉，然后在新的主力合约上开仓，统一以开盘价平掉旧的主力合约
+                # 如果当天涉及到移仓，需要将昨天的仓位先平掉，然后在新的主力合约上开仓，以开盘价/结算价VWAP平掉旧的主力合约
                 if bt_price[k].switch and bt_price[k].switch_contract[i] \
                     and ~np.isnan(bt_price[k].switch_contract[i]) and holdings[i - 1] != 0:
 
@@ -1294,9 +1303,9 @@ class BacktestSys(object):
 
                     table = self.db['FuturesMD']
                     res = bt_price[k].specific_contract[i-1]
-                    # 对于换合约需要平仓的合约均使用开盘价进行平仓
+                    # 对于换合约需要平仓的合约均使用开盘价/结算价进行平仓
                     queryArgs = {'wind_code': res, 'date': self.dt[i]}
-                    projectionField = ['OPEN']
+                    projectionField = [bt_price[k].bt_mode]
 
                     if res == 'nan':
                         # 对于MA.CZC, ZC.CZC的品种，之前没有specific_contract字段，使用前一交易日的收盘价
@@ -1305,7 +1314,7 @@ class BacktestSys(object):
                         trade_price_switch = bt_price[k].CLOSE[i-1]
                         trade_exrate_switch = getattr(self, self.exchange_func[bt_price[k].unit_change]).CLOSE[i-1]
                     elif table.find_one(queryArgs, projectionField):
-                        trade_price_switch = table.find_one(queryArgs, projectionField)['OPEN']
+                        trade_price_switch = table.find_one(queryArgs, projectionField)[bt_price[k].bt_mode]
                         trade_exrate_switch = getattr(self, self.exchange_func[bt_price[k].unit_change]).CLOSE[i]
                         if np.isnan(trade_price_switch):
                             print('%s因为该合约当天没有交易，在%s使用前一天的收盘价作为换约平仓的价格' % \
@@ -1590,7 +1599,8 @@ class BacktestSys(object):
         # df_pnl = pd.DataFrame(np.cumsum(pnl), index=self.dt)
         # df_pnl.to_clipboard()
         nv = 1. + np.cumsum(pnl) / self.capital  # 转换成初始净值为1
-        margin_occ_ratio = margin_occ / (self.capital + np.cumsum(pnl))
+        # margin_occ_ratio = margin_occ / (self.capital + np.cumsum(pnl))
+        margin_occ_ratio = margin_occ / self.capital
         # leverage = value / (self.capital + np.cumsum(pnl))
         leverage = value / self.capital
         trade_record = self.statTrade(holdingsObj)
