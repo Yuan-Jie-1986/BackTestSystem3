@@ -13,14 +13,14 @@ log_path: "E:\\CBNB\\BackTestSystem3\\data_saving.log"
 collection:
 #  - Information
 #  - FuturesMinMD
-#  - FuturesMD
-#  - SpotMD
-#  - EDB
-#  - Inventory
+  - FuturesMD
+  - SpotMD
+  - EDB
+  - Inventory
 #  - ImExport
 #  - OperationRate
 #  - FuturesOIR
-  - DateDB
+#  - DateDB
 #  - DerivDB
 #  - TempDB
 
@@ -160,7 +160,7 @@ FuturesMinMD:
     save_mode: CSV
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: EG.DCE
-    cmd: [EG.DCE, EG2001.DCE, EG2005.DCE, EG2009.DCE]
+    cmd: [EG.DCE, EG2101.DCE, EG2005.DCE, EG2009.DCE]
 
   - source: WIND
     frequency: 1min
@@ -176,7 +176,7 @@ FuturesMinMD:
     save_mode: CSV
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: CU.SHF
-    cmd: [CU.SHF, CU2006.SHF, CU2002.SHF, CU2003.SHF, CU2004.SHF, CU2005.SHF]
+    cmd: [CU.SHF, CU2006.SHF, CU2007.SHF, CU2003.SHF, CU2004.SHF, CU2005.SHF]
 
   - source: WIND
     frequency: 1min
@@ -184,7 +184,7 @@ FuturesMinMD:
     save_mode: CSV
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: AL.SHF
-    cmd: [AL.SHF, AL2006.SHF, AL2002.SHF, AL2003.SHF, AL2004.SHF, AL2005.SHF]
+    cmd: [AL.SHF, AL2006.SHF, AL2007.SHF, AL2003.SHF, AL2004.SHF, AL2005.SHF]
 
   - source: WIND
     frequency: 1min
@@ -192,7 +192,7 @@ FuturesMinMD:
     save_mode: CSV
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: ZN.SHF
-    cmd: [ZN.SHF, ZN2006.SHF, ZN2002.SHF, ZN2003.SHF, ZN2004.SHF, ZN2005.SHF]
+    cmd: [ZN.SHF, ZN2006.SHF, ZN2007.SHF, ZN2003.SHF, ZN2004.SHF, ZN2005.SHF]
 
   - source: WIND
     frequency: 1min
@@ -200,7 +200,7 @@ FuturesMinMD:
     save_mode: CSV
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: NI.SHF
-    cmd: [NI.SHF, NI2006.SHF, NI2002.SHF, NI2003.SHF, NI2004.SHF, NI2005.SHF]
+    cmd: [NI.SHF, NI2006.SHF, NI2007.SHF, NI2003.SHF, NI2004.SHF, NI2005.SHF]
 
   - source: WIND
     frequency: 1min
@@ -208,7 +208,7 @@ FuturesMinMD:
     save_mode: CSV
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: AU.SHF
-    cmd: [AU.SHF, AU2002.SHF, AU2004.SHF, AU2006.SHF]
+    cmd: [AU.SHF, AU2012.SHF, AU2004.SHF, AU2006.SHF, AU2008.SHF, AU2010.SHF]
 
   - source: WIND
     frequency: 1min
@@ -216,7 +216,7 @@ FuturesMinMD:
     save_mode: CSV
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: AG.SHF
-    cmd: [AG.SHF, AG2002.SHF, AG2004.SHF, AG2006.SHF]
+    cmd: [AG.SHF, AG2003.SHF, AG2004.SHF, AG2005.SHF, AG2006.SHF, AG2007.SHF, AG2008.SHF]
 
   - source: WIND
     frequency: 1min
@@ -253,7 +253,7 @@ FuturesMinMD:
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: LCO
     data_type: futures
-    cmd: [LCOc1, LCOc2, LCOc3, LCOc4, LCOc5, LCOc6, LCOF3, LCOG3, LCOH0, LCOJ0, LCOK0, LCOM0, LCON0, LCOQ0, LCOU0,
+    cmd: [LCOc1, LCOc2, LCOc3, LCOc4, LCOc5, LCOc6, LCOF3, LCOG3, LCOH3, LCOJ0, LCOK0, LCOM0, LCON0, LCOQ0, LCOU0,
           LCOV0, LCOX0, LCOZ0, LCOF1, LCOG1, LCOH1, LCOJ1, LCOK1, LCOM1, LCON1, LCOQ1, LCOU1, LCOV1, LCOX1, LCOZ1,
           LCOF2, LCOG2, LCOH2, LCOJ2, LCOK2, LCOM2, LCON2, LCOQ2, LCOU2, LCOV2, LCOX2, LCOZ2]
 
@@ -265,7 +265,7 @@ FuturesMinMD:
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: CL
     data_type: futures
-    cmd: [CLc1, CLc2, CLc3, CLc4, CLc5, CLc6, CLF3, CLG0, CLH0, CLJ0, CLK0, CLM0, CLN0, CLQ0, CLU0, CLV0, CLX0, CLZ0,
+    cmd: [CLc1, CLc2, CLc3, CLc4, CLc5, CLc6, CLF3, CLG3, CLH0, CLJ0, CLK0, CLM0, CLN0, CLQ0, CLU0, CLV0, CLX0, CLZ0,
           CLF1, CLG1, CLH1, CLJ1, CLK1, CLM1, CLN1, CLQ1, CLU1, CLV1, CLX1, CLZ1, CLF2, CLG2, CLH2, CLJ2, CLK2, CLM2,
           CLN2, CLQ2, CLU2, CLV2, CLX2, CLZ2]
 
