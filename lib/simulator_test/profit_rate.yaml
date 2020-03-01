@@ -1,0 +1,710 @@
+
+host: localhost
+port: 27017
+db_name: CBNB
+user: yuanjie
+pwd: yuanjie
+
+start_date: '20150101'
+end_date: '20190726'
+capital: 1e7
+backtest_mode: OPEN  # 回测方式，CLOSE为以当天收盘价交易, OPEN为以第二天开盘价交易
+
+switch_contract: 1
+date_type: SHSE
+turnover: 1
+tcost: 1
+
+data:
+
+  bt_price:
+
+    -
+      name: TA.CZC
+      collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
+      db_query:
+        wind_code: TA.CZC
+      commodity: TA
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+      bt_mode: OPEN # 如果没有该字段，则默认为OPEN
+      trade_unit: 5 # 如果没有该字段，则默认为1
+      margin_ratio: 0.07 # 如果没有该字段，则默认为1
+      tcost: 1 # 如果没有该字段，则默认为0，不计手续费，如果没有cost_mode和cost_value，也会改为0
+      cost_mode: fixed
+      cost_value: 24
+      unit_change: unchange # 如果没有该字段，则默认为unchange
+      switch: 1 # 如果没有该字段，则默认为0，不切换合约
+      frequency: daily # 如果没有该字段，则默认为daily
+
+    -
+      name: L.DCE
+      db_query:
+        wind_code: L.DCE
+      commodity: L
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+      trade_unit: 5
+      margin_ratio: 0.07
+      tcost: 1
+      cost_mode: fixed
+      cost_value: 8
+      switch: 1
+
+    -
+      name: RU.SHF
+      db_query:
+        wind_code: RU.SHF
+      commodity: RU
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+      trade_unit: 10
+      margin_ratio: 0.09
+      tcost: 1
+      cost_mode: percentage
+      cost_value: 0.00045
+      switch: 1
+
+    -
+      name: MA.CZC
+      db_query:
+        wind_code: MA.CZC
+      commodity: MA
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+      trade_unit: 10
+      margin_ratio: 0.07
+      tcost: 1
+      cost_mode: fixed
+      cost_value: 16
+      switch: 1
+
+    -
+      name: RB.SHF
+      db_query:
+        wind_code: RB.SHF
+      commodity: RB
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+      trade_unit: 10
+      margin_ratio: 0.07
+      tcost: 1
+      cost_mode: percentage
+      cost_value: 0.0004
+      switch: 1
+
+    -
+      name: J.DCE
+      db_query:
+        wind_code: J.DCE
+      commodity: J
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+      trade_unit: 100
+      margin_ratio: 0.07
+      tcost: 1
+      cost_mode: percentage
+      cost_value: 0.00024
+      switch: 1
+
+    -
+      name: JM.DCE
+      db_query:
+        wind_code: JM.DCE
+      commodity: JM
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+      trade_unit: 60
+      margin_ratio: 0.07
+      tcost: 1
+      cost_mode: percentage
+      cost_value: 0.00024
+      switch: 1
+
+    -
+      name: HC.SHF
+      db_query:
+        wind_code: HC.SHF
+      commodity: HC
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+      trade_unit: 10
+      margin_ratio: 0.07
+      tcost: 1
+      cost_mode: percentage
+      cost_value: 0.0004
+      switch: 1
+
+    -
+      name: BU.SHF
+      db_query:
+        wind_code: BU.SHF
+      commodity: BU
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+      trade_unit: 10
+      margin_ratio: 0.07
+      tcost: 1
+      cost_mode: percentage
+      cost_value: 0.0004
+      switch: 1
+
+    -
+      name: ZC.CZC
+      db_query:
+        wind_code: ZC.CZC
+      commodity: ZC
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+      trade_unit: 100
+      margin_ratio: 0.07
+      tcost: 1
+      cost_mode: fixed
+      cost_value: 16
+      switch: 1
+
+    -
+      name: I.DCE
+      db_query:
+        wind_code: I.DCE
+      commodity: I
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+      trade_unit: 100
+      margin_ratio: 0.07
+      tcost: 1
+      cost_mode: percentage
+      cost_value: 0.00048
+      switch: 1
+
+    -
+      name: PP.DCE
+      db_query:
+        wind_code: PP.DCE
+      commodity: PP
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+      trade_unit: 5
+      margin_ratio: 0.07
+      tcost: 1
+      cost_mode: percentage
+      cost_value: 0.00024
+      switch: 1
+
+
+    -
+      name: V.DCE
+      db_query:
+        wind_code: V.DCE
+      commodity: V
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+      trade_unit: 5
+      margin_ratio: 0.07
+      tcost: 1
+      cost_mode: fixed
+      cost_value: 8
+      switch: 1
+
+    -
+      name: EG.DCE
+      db_query:
+        wind_code: EG.DCE
+      commodity: EG
+      fields: [OPEN, CLOSE, HIGH, LOW, VOLUME]
+      trade_unit: 10
+      margin_ratio: 0.07
+      tcost: 1
+      cost_mode: fixed
+      cost_value: 16
+      switch: 1
+
+  profit_rate:
+    -
+      name: L.DCE
+      collection: ProfitRate
+      db_query:
+        commodity: L.DCE
+        method: future
+      commodity: L
+      fields: [upper_profit_rate]
+
+    -
+      name: PP.DCE
+      collection: ProfitRate
+      db_query:
+        commodity: PP.DCE
+        method: future
+      commodity: PP
+      fields: [upper_profit_rate]
+
+    -
+      name: MA.CZC
+      collection: ProfitRate
+      db_query:
+        commodity: MA.CZC
+        method: future
+      commodity: MA
+      fields: [upper_profit_rate]
+
+    -
+      name: V.DCE
+      collection: ProfitRate
+      db_query:
+        commodity: V.DCE
+        method: spot
+      commodity: V
+      fields: [upper_profit_rate]
+
+    -
+      name: TA.CZC
+      collection: ProfitRate
+      db_query:
+        commodity: TA.CZC
+        method: future
+      commodity: TA
+      fields: [upper_profit_rate]
+
+    -
+      name: EG.DCE
+      collection: ProfitRate
+      db_query:
+        commodity: EG.DCE
+        method: future
+      commodity: EG
+      fields: [upper_profit_rate]
+
+    -
+      name: RB.SHF
+      collection: ProfitRate
+      db_query:
+        commodity: RB.SHF
+        method: future
+      commodity: RB
+      fields: [upper_profit_rate]
+
+    -
+      name: HC.SHF
+      collection: ProfitRate
+      db_query:
+        commodity: HC.SHF
+        method: future
+      commodity: HC
+      fields: [upper_profit_rate]
+
+    -
+      name: J.DCE
+      collection: ProfitRate
+      db_query:
+        commodity: J.DCE
+        method: future
+      commodity: J
+      fields: [upper_profit_rate]
+
+    -
+      name: BU.SHF
+      collection: ProfitRate
+      db_query:
+        commodity: BU.SHF
+        method: future
+      commodity: BU
+      fields: [upper_profit_rate]
+
+    -
+      name: RU.SHF
+      collection: ProfitRate
+      db_query:
+        commodity: RU.SHF
+        method: spot
+      commodity: RU
+      fields: [upper_profit_rate]
+
+  spot_price:
+    -
+      name: RB
+      collection: SpotMD
+      db_query:
+        edb_name: "价格:螺纹钢:HRB400 20mm:上海"
+      commodity: RB
+      fields: [CLOSE]
+
+    -
+      name: J
+      collection: SpotMD
+      db_query:
+        edb_name: "天津港:平仓价(含税):一级冶金焦(A<12.5%,<0.65%S,CSR>65%,Mt8%):山西产"
+      commodity: J
+      fields: [CLOSE]
+
+    -
+      name: I
+      collection: SpotMD
+      db_query:
+        edb_name: "车板价:青岛港:澳大利亚:PB粉矿:61.5%"
+      commodity: I
+      fields: [CLOSE]
+
+    -
+      name: HC
+      collection: SpotMD
+      db_query:
+        edb_name: "价格:热轧板卷:Q235B:4.75mm:杭州"
+      commodity: HC
+      fields: [CLOSE]
+
+    -
+      name: JM
+      collection: SpotMD
+      db_query:
+        edb_name: "天津港:库提价(含税):主焦煤(A<8%,V28%,0.8%S,G95,Y20mm):澳大利亚产"
+      commodity: JM
+      fields: [CLOSE]
+
+    -
+      name: ZC
+      collection: SpotMD
+      db_query:
+        edb_name: "秦皇岛港:平仓价:动力末煤(Q5500):山西产"
+      commodity: ZC
+      fields: [CLOSE]
+
+    -
+      name: RU
+      collection: SpotMD
+      db_query:
+        edb_name: "市场价:天然橡胶:云南国营全乳胶(SCRWF):上海"
+      commodity: RU
+      fields: [CLOSE]
+
+
+    -
+      name: TA
+      collection: SpotMD
+      db_query:
+        commodity: "TA内盘人民币价"
+      commodity: TA
+      fields: [price]
+
+    -
+      name: PP
+      collection: SpotMD
+      db_query:
+        commodity: "PP华东现货价"
+      commodity: PP
+      fields: [price]
+
+    -
+      name: L
+      collection: SpotMD
+      db_query:
+        commodity: "LL神华煤化工价格"
+      commodity: L
+      fields: [price]
+
+    -
+      name: MA
+      collection: SpotMD
+      db_query:
+        commodity: "甲醇华东（江苏地区）"
+      commodity: MA
+      fields: [price]
+
+    -
+      name: V
+      collection: SpotMD
+      db_query:
+        commodity: "现货（常州sg-5低端价）"
+      commodity: V
+      fields: [price]
+
+    -
+      name: BU
+      collection: SpotMD
+      db_query:
+        commodity: "国产重交-山东"
+      commodity: BU
+      fields: [price]
+
+    -
+      name: EG
+      collection: SpotMD
+      db_query:
+        commodity: "MEG"
+      commodity: EG
+      fields: [price]
+
+  inventory:
+
+    -
+      name: TA
+      collection: Inventory # 如果没有该字段，则默认为FuturesMD
+      db_query:
+        commodity: PTA
+      commodity: TA
+      fields: [inventory]
+      frequency: weekly
+
+    -
+      name: L
+      collection: Inventory
+      db_query:
+        commodity: LL
+        area: LL石化库存
+      commodity: L
+      fields: [inventory]
+      frequency: weekly
+
+    -
+      name: MA
+      collection: Inventory
+      db_query:
+        commodity: MA
+      commodity: MA
+      fields: [inventory]
+      frequency: weekly
+
+    -
+      name: RB
+      collection: Inventory
+      db_query:
+        commodity: RB
+      commodity: RB
+      fields: [inventory]
+      frequency: weekly
+
+    -
+      name: RU
+      collection: Inventory
+      db_query:
+        edb_name: "库存小计:天然橡胶:总计"
+      commodity: RU
+      fields: [CLOSE]
+      frequency: weekly
+
+    -
+      name: J1
+      collection: Inventory
+      db_query:
+        edb_name: "焦炭库存:天津港"
+      commodity: J
+      fields: [CLOSE]
+      frequency: weekly
+
+    -
+      name: J2
+      collection: Inventory
+      db_query:
+        edb_name: "焦炭库存:连云港"
+      commodity: J
+      fields: [CLOSE]
+      frequency: weekly
+
+    -
+      name: J3
+      collection: Inventory
+      db_query:
+        edb_name: "焦炭库存:日照港"
+      commodity: J
+      fields: [CLOSE]
+      frequency: weekly
+
+    -
+      name: J4
+      collection: Inventory
+      db_query:
+        edb_name: "焦炭库存:青岛港"
+      commodity: J
+      fields: [CLOSE]
+      frequency: weekly
+
+
+    -
+      name: JM
+      collection: Inventory
+      db_query:
+        edb_name: "炼焦煤库存:六港口合计"
+      commodity: JM
+      fields: [CLOSE]
+      frequency: weekly
+
+    -
+      name: HC
+      collection: Inventory
+      db_query:
+        commodity: HC
+      commodity: HC
+      fields: [inventory]
+      frequency: weekly
+
+    -
+      name: BU
+      collection: Inventory
+      db_query:
+        commodity: BU
+      commodity: BU
+      fields: [inventory]
+      frequency: weekly
+
+    -
+      name: ZC1
+      collection: Inventory
+      db_query:
+        edb_name: "煤炭库存:秦皇岛港"
+      commodity: ZC
+      fields: [CLOSE]
+      frequency: weekly
+
+    -
+      name: ZC2
+      collection: Inventory
+      db_query:
+        edb_name: "煤炭库存:曹妃甸港"
+      commodity: ZC
+      fields: [CLOSE]
+      frequency: weekly
+
+    -
+      name: ZC3
+      collection: Inventory
+      db_query:
+        edb_name: "煤炭库存:6大发电集团:合计"
+      commodity: ZC
+      fields: [CLOSE]
+      frequency: weekly
+
+    -
+      name: I
+      collection: Inventory
+      db_query:
+        edb_name: "全国主要港口:铁矿石库存:总计(45港口)"
+      commodity: I
+      fields: [CLOSE]
+      frequency: weekly
+
+    -
+      name: PP
+      collection: Inventory
+      db_query:
+        commodity: PP
+        area: PP石化库存
+      commodity: PP
+      fields: [inventory]
+      frequency: weekly
+
+    -
+      name: V
+      collection: Inventory
+      db_query:
+        edb_name: "社会库存:PVC"
+      commodity: V
+      fields: [CLOSE]
+      frequency: weekly
+
+    -
+      name: EG
+      collection: Inventory
+      db_query:
+        commodity: MEG
+      commodity: EG
+      fields: [inventory]
+      frequency: weekly
+
+  future_index:
+    -
+      name: TA
+      collection: DerivDB # 如果没有该字段，则默认为FuturesMD
+      db_query:
+        name: TA888.CZC
+      commodity: TA
+      fields: [VOLUME, OI]
+
+    -
+      name: L
+      collection: DerivDB
+      db_query:
+        name: L888.DCE
+      commodity: L
+      fields: [VOLUME, OI]
+
+    -
+      name: RU
+      collection: DerivDB
+      db_query:
+        name: RU888.SHF
+      commodity: RU
+      fields: [VOLUME, OI]
+
+    -
+      name: MA
+      collection: DerivDB
+      db_query:
+        name: MA888.CZC
+      commodity: MA
+      fields: [VOLUME, OI]
+
+    -
+      name: RB
+      collection: DerivDB
+      db_query:
+        name: RB888.SHF
+      commodity: RB
+      fields: [VOLUME, OI]
+
+    -
+      name: J
+      collection: DerivDB
+      db_query:
+        name: J888.DCE
+      commodity: J
+      fields: [VOLUME, OI]
+
+    -
+      name: JM
+      collection: DerivDB
+      db_query:
+        name: JM888.DCE
+      commodity: JM
+      fields: [VOLUME, OI]
+
+    -
+      name: HC
+      collection: DerivDB
+      db_query:
+        name: HC888.SHF
+      commodity: HC
+      fields: [VOLUME, OI]
+
+    -
+      name: BU
+      collection: DerivDB
+      db_query:
+        name: BU888.SHF
+      commodity: BU
+      fields: [VOLUME, OI]
+
+    -
+      name: ZC
+      collection: DerivDB
+      db_query:
+        name: ZC888.CZC
+      commodity: ZC
+      fields: [VOLUME, OI]
+
+    -
+      name: I
+      collection: DerivDB
+      db_query:
+        name: I888.DCE
+      commodity: I
+      fields: [VOLUME, OI]
+
+    -
+      name: PP
+      collection: DerivDB
+      db_query:
+        name: PP888.DCE
+      commodity: PP
+      fields: [VOLUME, OI]
+
+    -
+      name: V
+      collection: DerivDB
+      db_query:
+        name: V888.DCE
+      commodity: V
+      fields: [VOLUME, OI]
+
+    -
+      name: EG
+      collection: DerivDB
+      db_query:
+        name: EG888.DCE
+      commodity: EG
+      fields: [VOLUME, OI]

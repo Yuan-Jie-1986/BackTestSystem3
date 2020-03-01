@@ -9,480 +9,34 @@ import pprint
 import yaml
 import os
 from pandas.plotting import register_matplotlib_converters
-
-
-# 需要导入的数据构造类
-class DataClass(object):
-    def __init__(self, nm):
-        self.nm = nm
-        self.ts_data_field = []  # 用来存储时间序列数据的变量名
-        self.ts_string_field = []  # 用来存储时间序列的字符的变量名
-
-    def add_dt(self, dt):
-        self.dt = np.array(dt)
-
-    # 检查时间长度与时间序列的变量长度是否一致
-    def check_len(self):
-        dt_len = len(self.dt)
-        ts_field = self.ts_data_field + self.ts_string_field
-        for field in ts_field:
-            temp = getattr(self, field)
-            if len(temp) != dt_len:
-                raise Exception('%s的%s与时间的长度不一致' % (self.nm, field))
-
-    # 自动检查长度是否一致的装饰器
-    def auto_check(func):
-        def inner(self, *args, **kwargs):
-            func(self, *args, **kwargs)
-            self.check_len()
-            return
-        return inner
-
-    # 添加时间序列的变量
-    @auto_check
-    def add_ts_data(self, obj_name, obj_value):
-        self.ts_data_field.append(obj_name)
-        obj_value = np.array(obj_value)
-        setattr(self, obj_name, obj_value)
-
-    # 更新时间序列的变量
-    @auto_check
-    def update_ts_data(self, obj_name, obj_value):
-        if obj_name not in self.ts_data_field:
-            raise Exception('%s不在时间序列数据名列表中，请检查或使用add_ts_data函数' % obj_name)
-        obj_value = np.array(obj_value)
-        setattr(self, obj_name, obj_value)
-
-    # 添加时间序列变量，但是字符串类型
-    @auto_check
-    def add_ts_string(self, obj_name, obj_value):
-        self.ts_string_field.append(obj_name)
-        obj_value = np.array(obj_value)
-        setattr(self, obj_name, obj_value)
-
-    # 更新字符口串类型的时间序列变量
-    @auto_check
-    def update_ts_string(self, obj_name, obj_value):
-        if obj_name not in self.ts_string_field:
-            raise Exception('%s不在字符串类型的时间序列数据名列表中，请检查或使用add_ts_string函数' % obj_name)
-        obj_value = np.array(obj_value)
-        setattr(self, obj_name, obj_value)
-
-
-    # 添加变量，主要是起到标识的作用
-    def add_data(self, obj_name, obj_value):
-        setattr(self, obj_name, obj_value)
-
-    # 对于时间序列数据进行填充
-    @auto_check
-    def fillna_ts_data(self, obj_name, method='ffill'):
-        if obj_name not in self.ts_data_field and obj_name not in self.ts_string_field:
-            raise Exception('%s不在时间序列数据列表' % obj_name)
-        temp = getattr(self, obj_name)
-        temp = pd.DataFrame(temp).fillna(method=method).values.flatten()
-        setattr(self, obj_name, temp)
-
-
-    # 根据新的时间序列重新生成时间序列变量
-    @auto_check
-    def rearrange_ts_data(self, dt_new):
-        con1 = np.in1d(self.dt, dt_new)
-        con2 = np.in1d(dt_new, self.dt)
-        for field in self.ts_data_field:
-            temp = np.ones(len(dt_new)) * np.nan
-            temp[con2] = getattr(self, field)[con1]
-            setattr(self, field, temp)
-        for field in self.ts_string_field:
-            temp = np.array(len(dt_new) * [None])
-            temp[con2] = getattr(self, field)[con1]
-            setattr(self, field, temp)
-        self.dt = dt_new
-
-
-# 持仓数据类
-class HoldingClass(object):
-    def __init__(self, dt):
-        # self.asset存储所持有的合约名
-        # self.合约名是持仓数据
-        self.dt = dt
-        self.asset = []
-        self.newest_holdings = {}
-
-    # 检查时间长度与持仓变量长度是否一致
-    def check_len(self):
-        dt_len = len(self.dt)
-        for field in self.asset:
-            temp = getattr(self, field)
-            if len(temp) != dt_len:
-                raise Exception('%s的持仓数据与时间的长度不一致，%s的长度是%d, 时间的长度是%d' %
-                                (field, field, len(temp), dt_len))
-
-    # 自动检查长度是否一致的装饰器
-    def auto_check(func):
-        def inner(self, *args, **kwargs):
-            func(self, *args, **kwargs)
-            self.check_len()
-            return
-        return inner
-
-    # 定义持仓数据进行叠加
-    def __add__(self, other):
-        if (self.dt != other.dt).any():
-            raise Exception('两个持仓数据的时间不一致')
-        new = HoldingClass(self.dt)
-        new.asset = np.array(list(set(self.asset).union(set(other.asset))))
-        set_inter = set(self.asset).intersection(set(other.asset))
-        for h in set_inter:
-            new_h = getattr(self, h) + getattr(other, h)
-            setattr(new, h, new_h)
-            new.newest_holdings[h] = self.newest_holdings[h] + other.newest_holdings[h]
-        set_1 = set(self.asset).difference(set(other.asset))
-        for h in set_1:
-            setattr(new, h, getattr(self, h))
-            new.newest_holdings[h] = self.newest_holdings[h]
-        set_2 = set(other.asset).difference(set(self.asset))
-        for h in set_2:
-            setattr(new, h, getattr(other, h))
-            new.newest_holdings[h] = other.newest_holdings[h]
-        return new
-
-
-    # 增加持仓数据
-    @auto_check
-    def add_holdings(self, contract, holdings):
-        self.asset.append(contract)
-        holdings = np.array(holdings)
-        setattr(self, contract, holdings)
-        self.newest_holdings[contract] = holdings[-1]
-
-    # 更新持仓数据
-    @auto_check
-    def update_holdings(self, contract, holdings):
-        if contract not in self.asset:
-            raise Exception('%s合约不在已有的持仓列表中，请检查或使用add_holdings函数' % contract)
-        holdings = np.array(holdings)
-        setattr(self, contract, holdings)
-        self.newest_holdings[contract] = holdings[-1]
-
-
-    # 将持仓情况向后平移
-    @auto_check
-    def shift_holdings(self, mode='all', label=None):
-        if mode == 'all':
-            # 所有持仓全部往后平移，此为默认方式
-            for h in self.asset:
-                temp = getattr(self, h)
-                new_holdings = np.zeros(len(self.dt))
-                new_holdings[1:] = temp[:-1]
-                setattr(self, h, new_holdings)
-        elif mode == 'single':
-            if label in self.asset:
-                temp = getattr(self, label)
-                new_holdings = np.zeros(len(self.dt))
-                new_holdings[1:] = temp[:-1]
-                setattr(self, label, new_holdings)
-
-
-    # 获得最新持仓数据
-    def get_newest_holdings(self):
-        return self.newest_holdings
-
-    # 根据调仓周期对持仓进行调整
-    @auto_check
-    def adjust_holdings_turnover(self, turnover):
-        holding_df = pd.DataFrame()
-        for h in self.asset:
-            holding_df[h] = getattr(self, h)
-        holding_value = holding_df.values
-        count = 0
-        for i in range(1, len(self.dt)):
-            if count == 0 and (holding_value[i] == 0).all():
-                continue
-            elif count == 0 and (holding_value[i] != 0).any():
-                count = 1
-            elif count != 0 and count != turnover:
-                holding_value[i] = holding_value[i - 1]
-                count += 1
-            elif count == turnover and (holding_value[i] == 0).all():
-                count = 0
-            elif count == turnover and (holding_value[i] != 0).any():
-                count = 1
-            else:
-                raise Exception('持仓调整出现错误，请检查')
-        for i in np.arange(len(self.asset)):
-            setattr(self, self.asset[i], holding_value[:, i])
-            self.newest_holdings[self.asset[i]] = holding_value[-1, i]
-
-    # 生成持仓Dataframe
-    def to_frame(self):
-        holding_df = pd.DataFrame()
-        for h in self.asset:
-            holding_df[h] = getattr(self, h)
-        holding_df.index = self.dt
-        return holding_df
-
-
-# 单次的交易记录
-class TradeRecordByTimes(object):
-    def __init__(self):
-        self.dt = None  # 交易时间
-        self.trade_commodity = None  # 交易商品
-        self.trade_contract = None  # 交易合约
-        self.trade_direction = None  # 交易方向, 1为做多，-1为做空
-        self.trade_price = None  # 交易价格
-        self.trade_exchangeRate = None  # 交易时的汇率
-        self.trade_volume = None  # 交易量
-        self.trade_amount = None  # 交易额
-        self.trade_multiplier = None  # 交易乘数
-        self.trade_margin_ratio = None  # 保证金比率
-        self.trade_margin_occupation = None  # 保证金占用
-        self.trade_type = None  # 交易类型，是平仓还是开仓。1为开仓，-1为平仓
-        self.trade_commodity_value = None  # 合约价值，一定是正值
-        self.trade_cost_mode = None  # 手续费收取方式：percentage还是fixed
-        self.trade_cost_unit = None  # 手续费
-        self.trade_cost = 0.
-
-    def setDT(self, val):
-        self.dt = val
-
-    def setPrice(self, val):
-        self.trade_price = val
-
-    def setExchangRate(self, val):
-        self.trade_exchangeRate = val
-
-    def setCommodity(self, val):
-        self.trade_commodity = val
-
-    def setContract(self, val):
-        self.trade_contract = val
-
-    def setDirection(self, val):
-        self.trade_direction = val
-
-    def setType(self, val):
-        self.trade_type = val
-
-    def setVolume(self, val):
-        self.trade_volume = val
-
-    def setMultiplier(self, val):
-        self.trade_multiplier = val
-
-    def setMarginRatio(self, val):
-        self.trade_margin_ratio = val
-
-    def setCost(self, mode, value):
-        self.trade_cost_mode = mode
-        self.trade_cost_unit = value
-
-    def calMarginOccupation(self):
-        self.trade_margin_occupation = self.trade_price * self.trade_multiplier * self.trade_margin_ratio * \
-                                       self.trade_volume * self.trade_exchangeRate
-        return self.trade_margin_occupation
-
-    def calValue(self):
-        self.trade_commodity_value = self.trade_price * self.trade_multiplier * abs(self.trade_volume) * \
-                                     self.trade_exchangeRate
-        return self.trade_commodity_value
-
-
-    def calCost(self):
-        if self.trade_cost_mode == 'percentage':
-            self.trade_cost = self.trade_price * self.trade_volume * self.trade_multiplier * self.trade_cost_unit * \
-                              self.trade_exchangeRate
-        elif self.trade_cost_mode == 'fixed':
-            self.trade_cost = self.trade_volume * self.trade_cost_unit
-
-
-# 逐笔的交易记录
-class TradeRecordByTrade(object):
-
-    def __init__(self):
-        self.open = np.nan
-        self.open_dt = None
-        self.close = np.nan
-        self.close_dt = None
-        self.volume = np.nan
-        self.direction = np.nan
-        self.contract = ''
-        self.commodity = ''
-        self.multiplier = np.nan
-        self.count = np.nan
-        self.pnl = np.nan
-        self.rtn = np.nan
-        self.holding_period = np.nan  # 该交易的交易周期
-        self.tcost_mode = None
-        self.tcost_unit = np.nan
-        self.tcost = 0
-        self.open_exchange_rate = 1.
-        self.close_exchange_rate = 1.
-
-    def calcPnL(self):
-        self.pnl = (self.close * self.close_exchange_rate - self.open * self.open_exchange_rate) * self.volume *\
-                   self.multiplier * self.direction - self.tcost
-
-    def calcRtn(self):
-        self.calcPnL()
-        self.rtn = self.pnl / (self.open * self.volume * self.multiplier * self.open_exchange_rate)
-        # self.rtn = self.direction * ((self.close / self.open) - 1.)
-
-    def calcHoldingPeriod(self):
-        self.holding_period = (self.close_dt - self.open_dt + timedelta(1)).days
-
-    def calcTcost(self):
-        if self.tcost_mode == 'percentage':
-            self.tcost = (self.open + self.close) * self.volume * self.multiplier * self.tcost_unit
-        elif self.tcost_mode == 'fixed':
-            self.tcost = self.volume * 2. * self.tcost_unit
-
-    def setOpen(self, val):
-        self.open = val
-
-    def setOpenDT(self, val):
-        self.open_dt = val
-
-    def setClose(self, val):
-        self.close = val
-
-    def setCloseDT(self, val):
-        self.close_dt = val
-
-    def setVolume(self, val):
-        self.volume = val
-
-    def setDirection(self, val):
-        self.direction = val
-
-    def setContract(self, val):
-        self.contract = val
-
-    def setCommodity(self, val):
-        self.commodity = val
-
-    def setMultiplier(self, val):
-        self.multiplier = val
-
-    def setCounter(self, val):
-        self.count = val
-
-    def setTcost(self, mode, value):
-        self.tcost_mode = mode
-        self.tcost_unit = value
-
-    def setOpenExchangeRate(self, val):
-        self.open_exchange_rate = val
-
-    def setCloseExchangeRate(self, val):
-        self.close_exchange_rate = val
-
-
-# 逐日的交易记录
-class TradeRecordByDay(object):
-
-    def __init__(self, dt, holdPosDict, MkData, newTrade):
-        self.dt = dt  # 日期
-        self.newTrade = newTrade  # 当天进行的交易
-        self.mkdata = MkData  # 合约市场数据
-        self.holdPosition = holdPosDict  # 之前已有的持仓, 字典中的volume的值是有正有负，正值代表持多仓，负值为空仓
-        self.daily_pnl = 0  # 每日的pnl
-        self.daily_margin_occ = 0  # 每日的保证金占用情况
-        self.daily_commodity_value = 0  # 每日的合约价值
-
-    def addNewPositon(self):
-
-        for tObj in self.newTrade:
-
-            if tObj.dt != self.dt:
-                continue
-
-            if tObj.trade_contract not in self.holdPosition:
-                self.holdPosition[tObj.trade_contract] = dict()
-
-            self.holdPosition[tObj.trade_contract].setdefault('newTrade', []).append(tObj)
-
-    def getFinalMK(self):
-
-        for k, v in list(self.holdPosition.items()):
-            if 'volume' in v:
-                if k not in self.mkdata:
-                    print('%s合约%s没有数据' % (k, self.dt.strftime('%Y%m%d')))
-                    continue
-                if 'PRECLOSE' not in self.mkdata[k]:
-                    print(self.dt, self.mkdata[k])
-                    raise Exception('请检查传入的市场数据是否正确')
-
-                new_pnl = v['volume'] * (self.mkdata[k]['CLOSE'] * self.mkdata[k]['ExRate'] - self.mkdata[k]['PRECLOSE']
-                                         * self.mkdata[k]['PRECLOSE_ExRate']) * self.mkdata[k]['multiplier']
-
-                # 如果某些品种当天没有成交量，那么算出来的结果可能为nan
-                if np.isnan(new_pnl):
-                    print(self.dt, self.mkdata[k])
-                    raise Exception('请检查当天的量价数据是否有问题')
-
-                self.daily_pnl += new_pnl
-
-            else:
-                self.holdPosition[k]['volume'] = 0
-
-            if 'newTrade' in v:
-
-                for nt in v['newTrade']:
-
-                    new_pnl = nt.trade_volume * nt.trade_direction * nt.trade_multiplier * \
-                              (self.mkdata[k]['CLOSE'] * self.mkdata[k]['ExRate'] - nt.trade_price * nt.trade_exchangeRate)
-
-                    # 如果某些品种当天没有成交量，那么算出来的结果可能为nan
-                    if np.isnan(new_pnl):
-                        print(self.dt, nt.__dict__)
-                        raise Exception('请检查当天的量价数据是否有问题')
-                    if np.isnan(nt.trade_cost):
-                        print(self.dt, nt.__dict__)
-                        raise Exception('交易费用为nan，请检查当天的量价数据是否有问题')
-
-                    self.daily_pnl = self.daily_pnl + new_pnl - nt.trade_cost
-                    self.holdPosition[k]['volume'] = self.holdPosition[k]['volume'] + nt.trade_volume * \
-                                                     nt.trade_direction
-
-                del self.holdPosition[k]['newTrade']
-
-            if self.holdPosition[k]['volume'] == 0:
-                del self.holdPosition[k]
-
-            else:
-                new_margin_occ = abs(self.holdPosition[k]['volume']) * self.mkdata[k]['CLOSE'] * self.mkdata[k]['ExRate'] * \
-                                 self.mkdata[k]['multiplier'] * self.mkdata[k]['margin_ratio']
-                new_commodity_value = abs(self.holdPosition[k]['volume']) * self.mkdata[k]['CLOSE'] * self.mkdata[k]['ExRate'] * \
-                                      self.mkdata[k]['multiplier']
-
-                self.daily_margin_occ += new_margin_occ
-                self.daily_commodity_value += new_commodity_value
-
-        return self.daily_pnl, self.daily_margin_occ, self.daily_commodity_value
-
-    def getHoldPosition(self):
-        return self.holdPosition
-
-
-# 数符号相同的个数，用来计算最大连续盈利天数和最大连续亏损天数
-def countSign(x):
-    sign_x = np.sign(x)
-    counter = 0
-    for i in sign_x[::-1]:
-        if i == sign_x[-1]:
-            counter += 1
-        else:
-            break
-    return counter
+from .dObject import DataClass
+from .hObject import HoldingClass
+from .tObject import TradeRecordByTimes, TradeRecordByTrade, TradeRecordByDay
 
 class BacktestSys(object):
 
     def __init__(self):
         self.current_file = sys.argv[0]
         self.prepare()
-        self.mongo_login = False
 
     def prepare(self):
+
+        pd.set_option('expand_frame_repr', True)
+        pd.set_option('display.max_columns', 10)
+        pd.set_option('display.width', 200)
+
+        # 从配置文件里提取一些公用的信息
+        rel_path = os.path.split(os.path.relpath(__file__))[0]
+        config_path = os.path.join(rel_path, '..', 'config')
+
+        # 从multiplier.yaml中提取合约乘数信息
+        multiplier_yaml = open(os.path.join(config_path, 'multiplier.yaml'))
+        multiplier = yaml.load(multiplier_yaml, Loader=yaml.FullLoader)
+
+        # 从marginratio.yaml中提取保证金比例信息
+        marginratio_yaml = open(os.path.join(config_path, 'marginratio.yaml'))
+        margin_ratio = yaml.load(marginratio_yaml, Loader=yaml.FullLoader)
+
         # 根据yaml配置文件从数据库中抓取数据，并对回测进行参数设置
         current_yaml = '.'.join((os.path.splitext(self.current_file)[0], 'yaml'))
         f = open(current_yaml, encoding='utf-8')
@@ -497,59 +51,124 @@ class BacktestSys(object):
         # 初始资金
         self.capital = np.float(self.conf['capital'])
 
-        # 将需要的数据信息存到字典self.data中，key是yaml中配置的数据分类，比如futures_price，value仍然是个字典，{品种:数据实例}
+        # 判断是否需要mongo的连接信息，如果yaml里没有mongo_usage，则默认是需要的
+        mongo_usage = self.conf.setdefault('mongo_usage', 1)
+
+        # 配置Mongo信息
+        if mongo_usage:
+            mongo_yaml = open(os.path.join(config_path, 'mongoconfig.yaml'))
+            mongo_config = yaml.load(mongo_yaml, Loader=yaml.FullLoader)
+            host = mongo_config['host']
+            port = mongo_config['port']
+            usr = mongo_config['user']
+            pwd = mongo_config['pwd']
+            db_nm = mongo_config['db_name']
+            conn = pymongo.MongoClient(host=host, port=port)
+            self.db = conn[db_nm]
+            self.db.authenticate(name=usr, password=pwd)
+
+        # 判断是否需要tcost的信息，如果yaml里没有tcost，则默认是不需要的
+        tcost = self.conf.setdefault('tcost', 0)
+        if tcost:
+            tcost_yaml = open(os.path.join(config_path, 'tcost.yaml'))
+            tcost_config = yaml.load(tcost_yaml, Loader=yaml.FullLoader)
+
+
+        self.turnover = self.conf['turnover']
+
+        self.data = {}
+
+        # 将需要的数据信息存到字典self.data中，key是yaml中配置的数据分类，比如bt_price，value仍然是个字典，{品种:数据实例}
         # e.g. self.data = {'future_price': {'TA.CZC': DataClass的实例}}
 
         raw_data = self.conf['data']
-        self.data = {}
-        self.turnover = self.conf['turnover']
-        self.exchange_func = {}
 
+        self.exchange_func = {}
         exchange_list = []
+
         for sub_class, sub_data in raw_data.items():
             self.data[sub_class] = {}
             for d in sub_data:
-                self.data[sub_class][d['name']] = DataClass(nm=d['name'])
 
                 # 根据数据需要的属性进行默认设置
                 d.setdefault('frequency', 'daily')
                 d.setdefault('unit_change', 'unchange')
-                if sub_class == 'bt_price':
-                    d.setdefault('tcost', 0)
-                    d.setdefault('switch', 0)
-                    d.setdefault('margin_ratio', 1)
-                    d.setdefault('trade_unit', 1)
-                    d.setdefault('bt_mode', 'OPEN')
-                    if d['bt_mode'] not in d['fields']:
-                        d['fields'].append(d['bt_mode'])
-                    if 'tcost' in d and d['tcost'] == 1 and 'cost_mode' not in d:
-                        d['tcost'] = 0
 
+                exchange_list.append(d['unit_change'])
+
+                # 如果该数据是在bt_price中，则是用于计算pnl
+                if sub_class == 'bt_price':
+
+                    # 增加了该合约的合约乘数，如果没有，则为1
+                    if 'commodity' in d and d['commodity'] in multiplier:
+                        d.setdefault('multiplier', multiplier[d['commodity']])
+                    else:
+                        d.setdefault('multiplier', 1)
+
+                    # 如果在yaml文件中没有提供保证金比例，则增加该合约的保证金比例，如果没有，则为1
+                    if 'commodity' in d and d['commodity'] in margin_ratio:
+                        d.setdefault('margin_ratio', margin_ratio[d['commodity']])
+                    else:
+                        d.setdefault('margin_ratio', 1)
+
+
+                    # 增加该合约的交易成本，如果没有，则为0
+                    if tcost:
+                        if 'commodity' in d and d['commodity'] in tcost_config:
+                            d.setdefault('cost', tcost_config[d['commodity']])
+                        else:
+                            d.setdefault('cost', 0)
+
+                    d.setdefault('switch', 0)  # 是否有合约切换的情况，默认不做
+                    d.setdefault('bt_mode', 'OPEN')  # 回测的方式，默认为OPEN回测
+
+                    # d.setdefault('tcost', 0)
+                    # d.setdefault('margin_ratio', 1)
+                    # d.setdefault('trade_unit', 1)
+                    # if 'tcost' in d and d['tcost'] == 1 and 'cost_mode' not in d:
+                    #     d['tcost'] = 0
+
+                self.data[sub_class][d['name']] = DataClass(nm=d['name'], freq=d['frequency'])
                 for k, v in d.items():
+                    print(k, v)
                     self.data[sub_class][d['name']].add_data(k, v)
 
-                table = self.db[d['collection']] if 'collection' in d else self.db['FuturesMD']
-                query_arg = d['db_query']
-                query_arg.update({'date': {'$gte': self.start_dt, '$lte': self.end_dt}})
-                projection_fields = ['date'] + d['fields']
-                if 'switch' in d and d['switch'] == 1:
-                    projection_fields = projection_fields + ['switch_contract', 'specific_contract']
-                res = table.find(query_arg, projection_fields).sort('date', pymongo.ASCENDING)
-                df_res = pd.DataFrame.from_records(res)
-                df_res.drop(columns='_id', inplace=True)
-                dict_res = df_res.to_dict(orient='list')
-                self.data[sub_class][d['name']].add_dt(dict_res['date'])
-                for k, v in dict_res.items():
-                    if k != 'date' and k != 'specific_contract':
-                        self.data[sub_class][d['name']].add_ts_data(k, v)
-                    elif k == 'specific_contract':
-                        self.data[sub_class][d['name']].add_ts_string(k, v)
+                # 读取数据
+                # 如果是从CSV中提取，暂时不能将切换合约的问题解决掉，CSV主要是用于分钟数据的分析
+                if d['source'] == 'CSV':
+                    data_df = pd.read_csv(d['csv_path'], index_col=0, parse_dates=True)
+                    data_df = data_df[d['fields']]
+                    data_df = data_df.loc[(self.start_dt <= data_df.index) & (data_df.index <= self.end_dt)]
+                    if len(data_df.columns) != len(d['fields']):
+                        raise Exception('%s数据的fields字段有错误，请检查' % d['name'])
+                    self.data[sub_class][d['name']].add_ts(data_df.index.to_pydatetime())
+                    for f in d['fields']:
+                        self.data[sub_class][d['name']].add_ts_data(f, data_df[f].to_numpy())
 
-                if 'unit_change' in d:
-                    exchange_list.append(d['unit_change'])
+                elif d['source'] == 'MONGO':
+                    table = self.db[d['collection']] if 'collection' in d else self.db['FuturesMD']
+                    query_arg = d['db_query']
+                    query_arg.update({'date': {'$gte': self.start_dt, '$lte': self.end_dt}})
+                    projection_fields = ['date'] + d['fields']
 
+                    if 'switch' in d and d['switch'] == 1:
+                        projection_fields = projection_fields + ['switch_contract', 'specific_contract']
 
-        # 需要导入美元兑人民币数据
+                    res = table.find(query_arg, projection_fields).sort('date', pymongo.ASCENDING)
+
+                    df_res = pd.DataFrame.from_records(res)
+                    df_res.drop(columns='_id', inplace=True)
+
+                    dict_res = df_res.to_dict(orient='list')
+                    self.data[sub_class][d['name']].add_ts(dict_res['date'])
+
+                    for k, v in dict_res.items():
+                        if k != 'date' and k != 'specific_contract' and k != 'date_time':
+                            self.data[sub_class][d['name']].add_ts_data(k, v)
+                        elif k == 'specific_contract':
+                            self.data[sub_class][d['name']].add_ts_string(k, v)
+
+        # 需要导入美元兑人民币数据，但是只有日度数据
         if 'dollar' in exchange_list:
             self.exchange_func['dollar'] = 'dollar2rmb'
             query_arg = {'wind_code': 'M0067855', 'date': {'$gte': self.start_dt, '$lte': self.end_dt}}
@@ -559,31 +178,24 @@ class BacktestSys(object):
             df_res.drop(columns='_id', inplace=True)
             dict_res = df_res.to_dict(orient='list')
             self.dollar2rmb = DataClass(nm=self.exchange_func['dollar'])
-            self.dollar2rmb.add_dt(dict_res['date'])
+            self.dollar2rmb.add_ts(dict_res['date'])
             for k, v in dict_res.items():
                 if k != 'date':
                     self.dollar2rmb.add_ts_data(k, v)
 
-        # 将提取的数据按照交易时间的并集重新生成
+        # 将提取的数据按照交易时间的并集重新生成日期
+        # 同时对于不是日度数据的数据进行处理
         date_set = set()
         for sub_class, sub_data in self.data.items():
             for d in sub_data:
+                # 分钟数据的处理
+                self.data[sub_class][d].min_2_dt()
+                # 频率大于日度的数据的处理
+                self.data[sub_class][d].long_2_dt()
                 date_set = date_set.union(sub_data[d].dt)
+                print(self.data[sub_class][d].__dict__)
         self.dt = np.array(list(date_set))
         self.dt.sort()
-
-        # 针对周频数据转频到日频
-        for sub_class, sub_data in self.data.items():
-            for d in sub_data:
-                if sub_data[d].frequency == 'weekly' or sub_data[d].frequency == 'monthly':
-                    dt_weekly = sub_data[d].dt
-                    self.data[sub_class][d].add_dt(self.dt)
-                    for f in sub_data[d].ts_data_field:
-                        temp_df = pd.DataFrame(getattr(sub_data[d], f), index=dt_weekly, columns=[f])
-                        temp_df = temp_df.reindex(self.dt)
-                        temp_df.fillna(method='ffill', inplace=True)
-                        self.data[sub_class][d].update_ts_data(f, temp_df.values.flatten())
-
 
         # 如果定义了date_type，则去调取交易日期序列
         if 'date_type' in self.conf:
@@ -601,7 +213,10 @@ class BacktestSys(object):
         # 根据交易日期序列重新整理数据
         for sub_class in self.data:
             for d in self.data[sub_class]:
-                self.data[sub_class][d].rearrange_ts_data(self.dt)
+                # 对于分钟数据不需要进行这样的处理，通常是量价数据一定是在交易时段，如果处理的话比较耗时间
+                if self.data[sub_class][d].frequency != 'minutes':
+                    self.data[sub_class][d].rearrange_ts_data(self.dt)
+
 
         # 根据交易日期序列重新整理汇率，并且先向后填充，然后再向前填充
         for k in self.exchange_func:
@@ -616,22 +231,8 @@ class BacktestSys(object):
         if 'unchange' in exchange_list:
             self.exchange_func['unchange'] = 'unchange'
             self.unchange = DataClass(nm=self.exchange_func['unchange'])
-            self.unchange.add_dt(self.dt)
+            self.unchange.add_ts(self.dt)
             self.unchange.add_ts_data('CLOSE', np.ones(len(self.dt)))
-
-
-    def mongoLogin(self):
-        # 数据库的配置信息
-        mongo_config = self.conf['Mongo']
-        host = mongo_config['host']
-        port = mongo_config['port']
-        usr = mongo_config['user']
-        pwd = mongo_config['pwd']
-        db_nm = mongo_config['db_name']
-
-        conn = pymongo.MongoClient(host=host, port=port)
-        self.db = conn[db_nm]
-        self.db.authenticate(name=usr, password=pwd)
 
     def strategy(self):
         raise NotImplementedError
@@ -651,7 +252,7 @@ class BacktestSys(object):
             holdingsObj.adjust_holdings_turnover(self.turnover)
 
         for h in holdingsObj.asset:
-            if self.data['bt_price'][h].bt_mode in ['OPEN', 'SETTLE']:
+            if self.data['bt_price'][h].bt_mode in ['OPEN', 'open']:
                 # 如果是开盘价进行交易，则将初始持仓向后平移一位
                 holdingsObj.shift_holdings(mode='single', label=h)
 
@@ -689,9 +290,6 @@ class BacktestSys(object):
         mode=2: 不加杠杆。所有持仓品种按照其波动率进行调整，按照相对的波动来对持仓进行分配。
         mode=3: 不加杠杆。所有持仓品种按照ATR进行调整，按照ATR来对持仓进行分配。计算ATR时需要最高价最低价
         mode=4: 不加杠杆。多空的资金相同，各个方向里的持仓品种的合约价值相同。
-        mode=5: 不加杠杆。多空的资金相同，各个方向里的持仓品种的合约价值相同。而且如果多或者空的个数不变的时候，持仓不调整。
-        mode=6: 不加杠杆。与mode=1相同。不过如果持有的合约比较少的话，单个品种最多占总资金的1/6。
-        mode=7: 不加杠杆。根据回测品种的个数平均分配资金，如果持仓该品种，根据分配的资金计算持仓
         """
         if not self.holdingsCheck(holdingsObj):
             raise Exception('持仓品种没有行情数据，请检查字段是否正确')
@@ -702,7 +300,7 @@ class BacktestSys(object):
         # 计算出各合约做1手的合约价值
         cls_df = pd.DataFrame()
         for k, v in self.data['bt_price'].items():
-            if hasattr(v, 'CLOSE') and (v.bt_mode in ['OPEN', 'CLOSE', 'SETTLE']):
+            if hasattr(v, 'CLOSE') and (v.bt_mode == 'OPEN' or v.bt_mode == 'CLOSE'):
                 price = v.CLOSE
             else:
                 price = getattr(v, v.bt_mode)
@@ -799,9 +397,9 @@ class BacktestSys(object):
             high_atr_df = pd.DataFrame()
             low_atr_df = pd.DataFrame()
             for k, v in self.data['bt_price'].items():
-                cls_atr = v.CLOSE * v.trade_unit
-                high_atr = v.HIGH * v.trade_unit
-                low_atr = v.LOW * v.trade_unit
+                cls_atr = v.CLOSE * self.unit[v.commodity]
+                high_atr = v.HIGH * self.unit[v.commodity]
+                low_atr = v.LOW * self.unit[v.commodity]
                 unit_change = getattr(self, self.exchange_func[v.unit_change]).CLOSE
                 cls_atr_df[k] = cls_atr * unit_change
                 high_atr_df[k] = high_atr * unit_change
@@ -973,81 +571,6 @@ class BacktestSys(object):
                 holdingsObj.update_holdings(h, holdings_new[h].values.flatten())
             return holdingsObj
 
-        elif mode == 7:
-            asset_num = len(self.data['bt_price'])
-            sub_capital = self.capital / asset_num
-
-            cls_df = cls_df * np.sign(holdings_df)
-            cls_df[cls_df == 0] = np.nan
-
-            holdings_new = pd.DataFrame()
-            for c in cls_df:
-                holdings_new[c] = sub_capital / cls_df[c]
-
-            holdings_new.fillna(0, inplace=True)
-
-            # 判断初始持仓是否与前一天的初始持仓相同
-            holdings_dir = np.sign(holdings_df)
-            holdings_yestd = holdings_dir.shift(periods=1)
-            holdings_equal = holdings_dir == holdings_yestd
-
-            holdings_new[holdings_equal] = np.nan
-            holdings_new.fillna(method='ffill', inplace=True)
-            holdings_new = holdings_new.round(decimals=0)
-            for h in holdingsObj.asset:
-                holdingsObj.update_holdings(h, holdings_new[h].values.flatten())
-            return holdingsObj
-
-    def holdingsLimit(self, holdingsObj, iskeep=1, **kwargs):
-        """
-        对持仓品种作限制。传入参数比如：{'BU.SHF': 1/6}，就是该品种的持仓不超过1/6
-        """
-        for k in kwargs:
-
-            if k not in holdingsObj.asset:
-                print(k)
-                raise Exception('进行限定的合约不在持仓里，请检查规则是否正确')
-            if kwargs[k] > 1:
-                raise Exception('%s提供的持仓比例限制大于1，可能出错' % k)
-
-            # 根据提供的比例计算出的最大持有货值
-            capital_max = kwargs[k] * self.capital
-
-            # 计算一手该合约的合约价值
-            dataObj_k = self.data['bt_price'][k]
-            if hasattr(dataObj_k, 'CLOSE') and (dataObj_k.bt_mode in ['OPEN', 'CLOSE', 'SETTLE']):
-                price = dataObj_k.CLOSE
-            else:
-                price = getattr(dataObj_k, dataObj_k.bt_mode)
-
-            value_k = price * dataObj_k.trade_unit * getattr(self, self.exchange_func[dataObj_k.unit_change]).CLOSE
-
-            # 计算最大持有手数，使用floor函数取整
-            holdings_previous = getattr(holdingsObj, k)
-            holdings_max = np.floor(capital_max / value_k)
-            holdings_processed = np.sign(getattr(holdingsObj, k)) * np.minimum(holdings_max, abs(getattr(holdingsObj, k)))
-
-            # 对于某些价格为nan & 处理后的持仓为nan & 处理之前持仓为0的情况，比如ZC.CZC
-            holdings_processed[(np.isnan(holdings_processed)) & (np.isnan(price)) & (holdings_previous == 0)] = 0
-
-            # 是否根据处理前持仓的变化来决定处理后持仓的变化
-            if iskeep:
-                holdings_previous_last = np.ones_like(holdings_previous) * np.nan
-                holdings_previous_last[1:] = holdings_previous[:-1]
-                isEqual = holdings_previous == holdings_previous_last
-                holdings_processed[isEqual] = np.nan
-                holdings_temp = pd.DataFrame(holdings_processed)
-                holdings_temp.fillna(method='ffill', inplace=True)
-                holdings_processed = holdings_temp.values.flatten()
-
-
-            holdingsObj.update_holdings(k, holdings_processed)
-
-        return holdingsObj
-
-
-
-
     def getPnlDaily(self, holdingsObj):
         '''
         根据持仓情况计算每日的pnl，每日的保证金占用，每日的合约价值
@@ -1093,7 +616,7 @@ class BacktestSys(object):
                 if i == 0 or np.isnan(price[:i]).all():
                     if holdings_td != 0:
                         newtrade = TradeRecordByTimes()
-                        newtrade.setDT(v)
+                        newtrade.setTT(v)
                         newtrade.setContract(h)
                         newtrade.setCommodity(bt_price[h].commodity)
                         newtrade.setPrice(getattr(bt_price[h], bt_price[h].bt_mode)[i])
@@ -1127,7 +650,7 @@ class BacktestSys(object):
                     if bt_price[h].switch:
                         mkdata[h].update({'switch_contract': bt_price[h].switch_contract[i],
                                           'specific_contract': bt_price[h].specific_contract[i - 1]})
-                        # 如果switch_contract为True，需要前主力合约的OPEN或者SETTLE
+                        # 如果switch_contract为True，需要前主力合约的OPEN
                         if mkdata[h]['switch_contract'] and ~np.isnan(mkdata[h]['switch_contract']):
                             # 这里需要注意的是np.nan也会判断为true，所以需要去掉
                             # 比如MA.CZC在刚开始的时候是没有specific_contract
@@ -1135,7 +658,7 @@ class BacktestSys(object):
                             # if np.isnan(mkdata[h]['switch_contract']):
                             #     raise Exception('adsfasdfasdfsafsa')
                             queryArgs = {'wind_code': mkdata[h]['specific_contract'], 'date': self.dt[i]}
-                            projectionField = [bt_price[h].bt_mode]
+                            projectionField = ['OPEN']
                             table = self.db['FuturesMD']
                             if mkdata[h]['specific_contract'] == 'nan':
                                 # 对于MA.CZC, ZC.CZC的品种，之前没有specific_contract字段，使用前一交易日的收盘价
@@ -1144,11 +667,11 @@ class BacktestSys(object):
                                 old_open = price[i - 1]
                                 old_open_exrate = getattr(self, self.exchange_func[bt_price[h].unit_change]).CLOSE[i - 1]
                             elif table.find_one(queryArgs, projectionField):
-                                old_open = table.find_one(queryArgs, projectionField)[bt_price[h].bt_mode]
+                                old_open = table.find_one(queryArgs, projectionField)['OPEN']
                                 old_open_exrate = getattr(self, self.exchange_func[bt_price[h].unit_change]).CLOSE[i]
                                 if np.isnan(old_open):
-                                    print('%s因为该合约当天没有%s价格，在%s使用前一天的收盘价作为换约平仓的价格' % \
-                                          (mkdata[h]['specific_contract'], bt_price[h].bt_mode, self.dt[i].strftime('%Y%m%d')))
+                                    print('%s因为该合约当天没有交易，在%s使用前一天的收盘价作为换约平仓的价格' % \
+                                          (mkdata[h]['specific_contract'], self.dt[i].strftime('%Y%m%d')))
                                     # 这样的处理方法有个问题，在实盘的交易中无法实现这样的操作。这里只是回测时的处理方法
                                     old_open = mkdata[h]['PRECLOSE']
                                     old_open_exrate = mkdata[h]['PRECLOSE_ExRate']
@@ -1161,7 +684,7 @@ class BacktestSys(object):
                     if bt_price[h].switch and mkdata[h]['switch_contract'] and ~np.isnan(mkdata[h]['switch_contract'])\
                             and holdings_ystd != 0:
                         newtrade1 = TradeRecordByTimes()
-                        newtrade1.setDT(v)
+                        newtrade1.setTT(v)
                         newtrade1.setContract(h)
                         newtrade1.setCommodity(bt_price[h].commodity)
                         newtrade1.setPrice(old_open)
@@ -1178,7 +701,7 @@ class BacktestSys(object):
 
                         if holdings_td != 0:
                             newtrade2 = TradeRecordByTimes()
-                            newtrade2.setDT(v)
+                            newtrade2.setTT(v)
                             newtrade2.setContract(h)
                             newtrade2.setCommodity(bt_price[h].commodity)
                             newtrade2.setPrice(getattr(bt_price[h], bt_price[h].bt_mode)[i])
@@ -1197,7 +720,7 @@ class BacktestSys(object):
                     else:
                         if holdings_td * holdings_ystd < 0:
                             newtrade1 = TradeRecordByTimes()
-                            newtrade1.setDT(v)
+                            newtrade1.setTT(v)
                             newtrade1.setContract(h)
                             newtrade1.setCommodity(bt_price[h].commodity)
                             newtrade1.setPrice(getattr(bt_price[h], bt_price[h].bt_mode)[i])
@@ -1214,7 +737,7 @@ class BacktestSys(object):
                             newtradedaily.append(newtrade1)
 
                             newtrade2 = TradeRecordByTimes()
-                            newtrade2.setDT(v)
+                            newtrade2.setTT(v)
                             newtrade2.setContract(h)
                             newtrade2.setCommodity(bt_price[h].commodity)
                             newtrade2.setPrice(getattr(bt_price[h], bt_price[h].bt_mode)[i])
@@ -1235,7 +758,7 @@ class BacktestSys(object):
 
                         else:
                             newtrade = TradeRecordByTimes()
-                            newtrade.setDT(v)
+                            newtrade.setTT(v)
                             newtrade.setContract(h)
                             newtrade.setCommodity(bt_price[h].commodity)
                             newtrade.setPrice(getattr(bt_price[h], bt_price[h].bt_mode)[i])
@@ -1292,7 +815,7 @@ class BacktestSys(object):
                 #     v[i] = v[i-1]
                 #     continue
 
-                # 如果当天涉及到移仓，需要将昨天的仓位先平掉，然后在新的主力合约上开仓，以开盘价/结算价VWAP平掉旧的主力合约
+                # 如果当天涉及到移仓，需要将昨天的仓位先平掉，然后在新的主力合约上开仓，统一以开盘价平掉旧的主力合约
                 if bt_price[k].switch and bt_price[k].switch_contract[i] \
                     and ~np.isnan(bt_price[k].switch_contract[i]) and holdings[i - 1] != 0:
 
@@ -1300,9 +823,9 @@ class BacktestSys(object):
 
                     table = self.db['FuturesMD']
                     res = bt_price[k].specific_contract[i-1]
-                    # 对于换合约需要平仓的合约均使用开盘价/结算价进行平仓
+                    # 对于换合约需要平仓的合约均使用开盘价进行平仓
                     queryArgs = {'wind_code': res, 'date': self.dt[i]}
-                    projectionField = [bt_price[k].bt_mode]
+                    projectionField = ['OPEN']
 
                     if res == 'nan':
                         # 对于MA.CZC, ZC.CZC的品种，之前没有specific_contract字段，使用前一交易日的收盘价
@@ -1311,7 +834,7 @@ class BacktestSys(object):
                         trade_price_switch = bt_price[k].CLOSE[i-1]
                         trade_exrate_switch = getattr(self, self.exchange_func[bt_price[k].unit_change]).CLOSE[i-1]
                     elif table.find_one(queryArgs, projectionField):
-                        trade_price_switch = table.find_one(queryArgs, projectionField)[bt_price[k].bt_mode]
+                        trade_price_switch = table.find_one(queryArgs, projectionField)['OPEN']
                         trade_exrate_switch = getattr(self, self.exchange_func[bt_price[k].unit_change]).CLOSE[i]
                         if np.isnan(trade_price_switch):
                             print('%s因为该合约当天没有交易，在%s使用前一天的收盘价作为换约平仓的价格' % \
@@ -1332,7 +855,7 @@ class BacktestSys(object):
                                 if uncovered_record[k][-j] == trade_record[k][-m].count:
                                     trade_record[k][-m].setClose(trade_price_switch)
                                     trade_record[k][-m].setCloseExchangeRate(trade_exrate_switch)
-                                    trade_record[k][-m].setCloseDT(self.dt[i])
+                                    trade_record[k][-m].setCloseTT(self.dt[i])
                                     trade_record[k][-m].calcHoldingPeriod()
                                     trade_record[k][-m].calcTcost()
                                     trade_record[k][-m].calcPnL()
@@ -1353,7 +876,7 @@ class BacktestSys(object):
                             tr_r.setCounter(count)
                             tr_r.setOpen(trade_price[i])
                             tr_r.setOpenExchangeRate(getattr(self, self.exchange_func[bt_price[k].unit_change]).CLOSE[i])
-                            tr_r.setOpenDT(self.dt[i])
+                            tr_r.setOpenTT(self.dt[i])
                             tr_r.setCommodity(bt_price[k].commodity)
                             tr_r.setVolume(abs(holdings[i]))
                             tr_r.setMultiplier(bt_price[k].trade_unit)
@@ -1373,7 +896,7 @@ class BacktestSys(object):
                         tr_r.setCounter(count)
                         tr_r.setOpen(trade_price[i])
                         tr_r.setOpenExchangeRate(getattr(self, self.exchange_func[bt_price[k].unit_change]).CLOSE[i])
-                        tr_r.setOpenDT(self.dt[i])
+                        tr_r.setOpenTT(self.dt[i])
                         tr_r.setCommodity(bt_price[k].commodity)
                         tr_r.setVolume(abs(holdings[i]))
                         tr_r.setMultiplier(bt_price[k].trade_unit)
@@ -1392,7 +915,7 @@ class BacktestSys(object):
                         tr_r.setCounter(count)
                         tr_r.setOpen(trade_price[i])
                         tr_r.setOpenExchangeRate(getattr(self, self.exchange_func[bt_price[k].unit_change]).CLOSE[i])
-                        tr_r.setOpenDT(self.dt[i])
+                        tr_r.setOpenTT(self.dt[i])
                         tr_r.setCommodity(bt_price[k].commodity)
                         tr_r.setVolume(abs(holdings[i]) - abs(holdings[i-1]))
                         tr_r.setMultiplier(bt_price[k].trade_unit)
@@ -1420,7 +943,7 @@ class BacktestSys(object):
                                         trade_record[k][-m].setClose(trade_price[i])
                                         trade_record[k][-m].setCloseExchangeRate(getattr(
                                             self, self.exchange_func[bt_price[k].unit_change]).CLOSE[i])
-                                        trade_record[k][-m].setCloseDT(self.dt[i])
+                                        trade_record[k][-m].setCloseTT(self.dt[i])
                                         trade_record[k][-m].calcHoldingPeriod()
                                         trade_record[k][-m].calcTcost()
                                         trade_record[k][-m].calcPnL()
@@ -1435,7 +958,7 @@ class BacktestSys(object):
                                         tr_r.setCounter(count)
                                         tr_r.setOpen(trade_record[k][-m].open)
                                         tr_r.setOpenExchangeRate(trade_record[k][-m].open_exchange_rate)
-                                        tr_r.setOpenDT(trade_record[k][-m].open_dt)
+                                        tr_r.setOpenTT(trade_record[k][-m].open_dt)
                                         tr_r.setCommodity(bt_price[k].commodity)
                                         tr_r.setVolume(uncovered_vol)
                                         tr_r.setMultiplier(bt_price[k].trade_unit)
@@ -1453,7 +976,7 @@ class BacktestSys(object):
                                         trade_record[k][-m].setClose(trade_price[i])
                                         trade_record[k][-m].setCloseExchangeRate(getattr(
                                             self, self.exchange_func[bt_price[k].unit_change]).CLOSE[i])
-                                        trade_record[k][-m].setCloseDT(self.dt[i])
+                                        trade_record[k][-m].setCloseTT(self.dt[i])
                                         trade_record[k][-m].calcHoldingPeriod()
                                         trade_record[k][-m].calcTcost()
                                         trade_record[k][-m].calcPnL()
@@ -1467,7 +990,7 @@ class BacktestSys(object):
                                         trade_record[k][-m].setClose(trade_price[i])
                                         trade_record[k][-m].setCloseExchangeRate(getattr(
                                             self, self.exchange_func[bt_price[k].unit_change]).CLOSE[i])
-                                        trade_record[k][-m].setCloseDT(self.dt[i])
+                                        trade_record[k][-m].setCloseTT(self.dt[i])
                                         trade_record[k][-m].calcHoldingPeriod()
                                         trade_record[k][-m].calcTcost()
                                         trade_record[k][-m].calcPnL()
@@ -1500,7 +1023,7 @@ class BacktestSys(object):
                                         trade_record[k][-m].setClose(trade_price[i])
                                         trade_record[k][-m].setCloseExchangeRate(getattr(
                                             self, self.exchange_func[bt_price[k].unit_change]).CLOSE[i])
-                                        trade_record[k][-m].setCloseDT(self.dt[i])
+                                        trade_record[k][-m].setCloseTT(self.dt[i])
                                         trade_record[k][-m].calcHoldingPeriod()
                                         trade_record[k][-m].calcTcost()
                                         trade_record[k][-m].calcPnL()
@@ -1515,7 +1038,7 @@ class BacktestSys(object):
                                         trade_record[k][-m].setClose(trade_price[i])
                                         trade_record[k][-m].setCloseExchangeRate(getattr(
                                             self, self.exchange_func[bt_price[k].unit_change]).CLOSE[i])
-                                        trade_record[k][-m].setCloseDT(self.dt[i])
+                                        trade_record[k][-m].setCloseTT(self.dt[i])
                                         trade_record[k][-m].calcHoldingPeriod()
                                         trade_record[k][-m].calcTcost()
                                         trade_record[k][-m].calcPnL()
@@ -1540,7 +1063,7 @@ class BacktestSys(object):
                         tr_r.setCounter(count)
                         tr_r.setOpen(trade_price[i])
                         tr_r.setOpenExchangeRate(getattr(self, self.exchange_func[bt_price[k].unit_change]).CLOSE[i])
-                        tr_r.setOpenDT(self.dt[i])
+                        tr_r.setOpenTT(self.dt[i])
                         tr_r.setCommodity(bt_price[k].commodity)
                         tr_r.setVolume(abs(holdings[i]))
                         tr_r.setMultiplier(bt_price[k].trade_unit)
@@ -1587,7 +1110,7 @@ class BacktestSys(object):
 
         return trade_record
 
-    def displayResult(self, holdingsObj, saveLocal=True, sub_group='year'):
+    def displayResult(self, holdingsObj, saveLocal=True):
         # saveLocal是逻辑变量，是否将结果存在本地
 
 
@@ -1596,13 +1119,12 @@ class BacktestSys(object):
         # df_pnl = pd.DataFrame(np.cumsum(pnl), index=self.dt)
         # df_pnl.to_clipboard()
         nv = 1. + np.cumsum(pnl) / self.capital  # 转换成初始净值为1
-        # margin_occ_ratio = margin_occ / (self.capital + np.cumsum(pnl))
-        margin_occ_ratio = margin_occ / self.capital
+        margin_occ_ratio = margin_occ / (self.capital + np.cumsum(pnl))
         # leverage = value / (self.capital + np.cumsum(pnl))
         leverage = value / self.capital
         trade_record = self.statTrade(holdingsObj)
         print('==============================回测结果================================')
-        self.calcIndicatorBySub(nv, turnover_rate, sub_group=sub_group)
+        self.calcIndicatorByYear(nv, turnover_rate)
 
         trade_pnl = []
         for tr in trade_record:
@@ -1692,9 +1214,7 @@ class BacktestSys(object):
 
         return annual_rtn, annual_std, sharpe, max_drawdown, max_drawdown_start, max_drawdown_end
 
-
-
-    def calcIndicatorBySub(self, net_value, turnover_rate, show=True, sub_group='year'):
+    def calcIndicatorByYear(self, net_value, turnover_rate, show=True):
 
         # 分年度进行统计，这里需要注意，标准差的计算是使用的无偏
 
@@ -1710,14 +1230,6 @@ class BacktestSys(object):
         mdd_start = nv.loc[:mdd_end].idxmax().values[0]
         # rtn_daily = nv.pct_change()  # 这个是复利日收益
         rtn_daily = nv.diff()  # 这个是单利日收益
-        rtn_profit = rtn_daily.copy()
-        rtn_profit[rtn_profit <= 0] = np.nan
-        profit_counter = rtn_profit.expanding().apply(countSign, raw=True)
-        max_profit_counter = profit_counter.max().values[0]
-        rtn_loss = rtn_daily.copy()
-        rtn_loss[rtn_loss >= 0] = np.nan
-        loss_counter = rtn_loss.expanding().apply(countSign, raw=True)
-        max_loss_counter = loss_counter.max().values[0]
 
         total_df = pd.DataFrame({'AnnualRtn': rtn_daily.mean().values[0] * 250.,
                                  'AnnualVol': rtn_daily.std().values[0] * np.sqrt(250.),
@@ -1725,40 +1237,22 @@ class BacktestSys(object):
                                  'MaxDrawdown': mdd,
                                  'MaxDDStart': mdd_start,
                                  'MaxDDEnd': mdd_end,
-                                 'ConProfitDays': max_profit_counter,
-                                 'ConLossDays': max_loss_counter,
                                  'Days': nv.count().values[0],
                                  'NetValueInit': nv['NV'].iloc[0],
                                  'NetValueFinal': nv['NV'].iloc[-1],
                                  'Turnover': turnover_df.mean().values[0]}, index=['total'])
 
-        # ################# 按更细的周期统计得到的结果 #####################
-        if sub_group == 'year':
-            rtn_daily['sub_group'] = [i.year for i in rtn_daily.index]
-            rtn_profit['sub_group'] = [i.year for i in rtn_profit.index]
-            rtn_loss['sub_group'] = [i.year for i in rtn_loss.index]
-            nv['sub_group'] = [i.year for i in nv.index]
-            turnover_df['sub_group'] = [i.year for i in turnover_df.index]
-        elif sub_group == 'month':
-            rtn_daily['sub_group'] = [i.strftime('%Y-%m') for i in rtn_daily.index]
-            rtn_profit['sub_group'] = [i.strftime('%Y-%m') for i in rtn_profit.index]
-            rtn_loss['sub_group'] = [i.strftime('%Y-%m') for i in rtn_loss.index]
-            nv['sub_group'] = [i.strftime('%Y-%m') for i in nv.index]
-            turnover_df['sub_group'] = [i.strftime('%Y-%m') for i in turnover_df.index]
+        # ################# 按年度统计得到的结果 #####################
 
+        rtn_daily['year'] = [i.year for i in rtn_daily.index]
+        grouped = rtn_daily.groupby(by='year')
 
-        grouped = rtn_daily.groupby(by='sub_group')
         rtn_mean = grouped.mean() * 250.
         rtn_std = grouped.std() * np.sqrt(250.)
         sharpe = rtn_mean / rtn_std
 
-        rp_grouped = rtn_profit.groupby(by='sub_group')
-        profit_days = rp_grouped.apply(func=lambda x: x[['NV']].expanding().apply(countSign, raw=True).max())
-
-        rp_grouped = rtn_loss.groupby(by='sub_group')
-        loss_days = rp_grouped.apply(func=lambda x: x[['NV']].expanding().apply(countSign, raw=True).max())
-
-        nv_grouped = nv.groupby(by='sub_group')
+        nv['year'] = [i.year for i in nv.index]
+        nv_grouped = nv.groupby(by='year')
 
         max_drawdown = nv_grouped.apply(func=lambda x: (x[['NV']] - x[['NV']].expanding().max()).min())
         max_drawdown_end = nv_grouped.apply(func=lambda x: (x[['NV']] - x[['NV']].expanding().max()).idxmin())
@@ -1768,8 +1262,8 @@ class BacktestSys(object):
         nv_init = nv_grouped.apply(func=lambda x: x[['NV']].iloc[0])
         nv_final = nv_grouped.apply(func=lambda x: x[['NV']].iloc[-1])
 
-
-        turnover_grouped = turnover_df.groupby(by='sub_group')
+        turnover_df['year'] = [i.year for i in turnover_df.index]
+        turnover_grouped = turnover_df.groupby(by='year')
         turnover_mean = turnover_grouped.mean()
 
         res_df = pd.DataFrame()
@@ -1783,8 +1277,6 @@ class BacktestSys(object):
         days.rename(columns={'NV': 'Days'}, inplace=True)
         nv_init.rename(columns={'NV': 'NetValueInit'}, inplace=True)
         nv_final.rename(columns={'NV': 'NetValueFinal'}, inplace=True)
-        profit_days.rename(columns={'NV': 'ConProfitDays'}, inplace=True)
-        loss_days.rename(columns={'NV': 'ConLossDays'}, inplace=True)
 
         res_df = res_df.join(rtn_mean, how='outer')
         res_df = res_df.join(rtn_std, how='outer')
@@ -1796,24 +1288,18 @@ class BacktestSys(object):
         res_df = res_df.join(days, how='outer')
         res_df = res_df.join(nv_init, how='outer')
         res_df = res_df.join(nv_final, how='outer')
-        res_df = res_df.join(profit_days, how='outer')
-        res_df = res_df.join(loss_days, how='outer')
         res_df = pd.concat((res_df, total_df), sort=False)
-
-        pd.set_option('expand_frame_repr', True)
-        pd.set_option('display.max_columns', 20)
-        pd.set_option('display.width', 200)
 
         if show:
             print(res_df)
 
         return res_df
 
-    def getTotalResult(self, holdingsObj, show=True, sub_group='year'):
+    def getTotalResult(self, holdingsObj, show=True):
 
         pnl, margin_occ, value, turnover_rate = self.getPnlDaily(holdingsObj)
         nv = 1. + np.cumsum(pnl) / self.capital  # 转换成初始净值为1
-        res = self.calcIndicatorBySub(nv, turnover_rate, show=show, sub_group=sub_group)
+        res = self.calcIndicatorByYear(nv, turnover_rate, show=show)
         return res
 
 
@@ -1821,17 +1307,15 @@ if __name__ == '__main__':
 
 
 
-    # test1 = DataClass(nm='TA.CZC', dt=np.arange(10))
+    t1 = DataClass(nm='TA.CZC', dt=np.arange(10))
     a = np.random.randn(10)
-    print(a)
-    countSign(a)
-    # test1.add_ts_data(obj_name='CLOSE', obj_value=a)
-    # test1.rearrange_ts_data(np.arange(20))
-    # print(getattr(test1, 'CLOSE'))
+    t1.add_ts_data(obj_name='CLOSE', obj_value=a)
+    t1.rearrange_ts_data(np.arange(20))
+    print(getattr(t1, 'CLOSE'))
     # test1.check_len()
 
     # ttest1 = TradeRecordByTimes()
-    # ttest1.setDT('20181203')
+    # ttest1.setTT('20181203')
     # ttest1.setContract('TA1901.CZC')
     # ttest1.setPrice(6000)
     # ttest1.setVolume(10)

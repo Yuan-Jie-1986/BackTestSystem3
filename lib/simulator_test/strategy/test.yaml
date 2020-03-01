@@ -1,0 +1,104 @@
+
+start_date: '20181101'
+end_date: '20181227'
+capital: 1e6
+date_type: SHSE # 目前可以选择的是SHSE/NYMEX
+turnover: 1  # 持仓天数，通常是针对横截面的策略，对于CTA策略不太适用
+mongo_usage: 1 # 默认使用mongo配置，如果为0则不用，1则用
+tcost: 1 # 默认不计算交易成本，如果为1则计算
+
+data:
+  bt_price:  # 用于计算pnl的价格，可以是期货价格，也可以是现货价格。这里不要使用非价格的数据。
+    -
+      name: TA_MIN
+      source: CSV
+      csv_path: 'E:\CBNB\BackTestSystem3\BT_DATA\RAW_DATA\FuturesMinMD\TA.CZC\TA.CZC.csv'
+#      db_query:
+#        wind_code: TA.CZC
+      commodity: TA.CZC
+      fields: [open, close, high, low]
+      bt_mode: open
+#      trade_unit: 5
+#      margin_ratio: 0.07
+#      tcost: 0
+#      cost_mode: fixed
+#      cost_value: 24
+      unit_change: unchange
+      frequency: minutes
+
+
+
+#
+#    -
+#      name: TA_DAILY  # name为必须字段，用于给该数据起名字
+#      collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
+#      db_query:
+#        wind_code: TA.CZC
+#      commodity: TA
+#      fields: [OPEN, CLOSE, HIGH, LOW]
+#      bt_mode: OPEN # 如果没有该字段，则默认为OPEN
+#      trade_unit: 5 # 如果没有该字段，则默认为1
+#      margin_ratio: 0.07 # 如果没有该字段，则默认为1
+#      tcost: 0 # 如果没有该字段，则默认为0，不计手续费，如果没有cost_mode和cost_value，也会改为0
+#      cost_mode: fixed
+#      cost_value: 24
+#      unit_change: unchange # 如果没有该字段，则默认为unchange
+#      switch: 1 # 如果没有该字段，则默认为0，不切换合约
+#      frequency: daily # 如果没有该字段，则默认为daily
+
+#    -
+#      name: PX
+#      collection: SpotMD
+#      db_query:
+#        commodity: PX
+#      commodity: PX
+#      fields: [price]
+#      bt_mode: price
+#      tcost: 0
+#      unit_change: dollar
+
+
+
+#    - collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
+#      obj_field: tr_code
+#      obj_content: LCOc1
+#      commodity: LCO
+#      fields: [OPEN, CLOSE, HIGH, LOW]
+#      unit_change: dollar
+
+#  spot_price:
+#  -
+#    name: TA
+#    collection: SpotMD
+#    db_query:
+#      commodity: "TA内盘人民币价"
+#    commodity: TA
+#    fields: [price]
+#
+#  profit_rate:
+#  -
+#    name: L.DCE
+#    collection: ProfitRate
+#    db_query:
+#      commodity: L.DCE
+#      method: future
+#    commodity: L
+#    fields: [upper_profit_rate]
+#  -
+#    obj_field: wind_code
+#    obj_content: PP.DCE
+#    commodity: PP
+#    fields: [OPEN, CLOSE]
+
+  inventory:
+
+    -
+      name: TA
+      source: MONGO
+      collection: Inventory # 如果没有该字段，则默认为FuturesMD
+      db_query:
+        commodity: PTA
+      commodity: TA
+      fields: [inventory]
+      frequency: weekly
+

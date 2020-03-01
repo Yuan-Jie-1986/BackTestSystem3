@@ -1,0 +1,42 @@
+TA.CZC:
+  mode: fixed
+  value: 24
+L.DCE:
+  mode: fixed
+  value: 8
+RU.SHF:
+  mode: percentage
+  value: 0.00045
+MA.CZC:
+  mode: fixed
+  value: 16
+RB.SHF:
+  mode: percentage
+  value: 0.0004
+J.DCE:
+  mode: percentage
+  value: 0.00024
+JM.DCE:
+  mode: percentage
+  value: 0.00024
+HC.SHF:
+  mode: percentage
+  value: 0.0004
+BU.SHF:
+  mode: percentage
+  value: 0.0004
+ZC.CZC:
+  mode: fixed
+  value: 16
+I.DCE:
+  mode: percentage
+  value: 0.00048
+PP.DCE:
+  mode: percentage
+  value: 0.00024
+V.DCE:
+  mode: fixed
+  value: 8
+EG.DCE:
+  mode: fixed
+  value: 16

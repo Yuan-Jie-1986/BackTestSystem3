@@ -7,7 +7,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import pprint
-from BackTestSystem3.lib.simulator_test.base import HoldingClass, BacktestSys
+from BackTestSystem3.lib.simulator_test.simlib.hObject import HoldingClass
+from BackTestSystem3.lib.simulator_test.simlib.processor import BacktestSys
+
 
 
 class test(BacktestSys):
@@ -17,8 +19,8 @@ class test(BacktestSys):
 
     def strategy(self):
         holdingsObj = HoldingClass(self.dt)
-        ta = self.data['bt_price']['TA_DAILY']
-        ta_cls = ta.CLOSE
+        ta = self.data['bt_price']['TA_MIN']
+        ta_cls = ta.close
         # print(ta.__dict__)
         # print(self.dt)
         # print(ta_cls)
@@ -26,7 +28,7 @@ class test(BacktestSys):
         # px_cls = px.price
         # dollar = self.dollar2rmb.CLOSE
         # profit = ta_cls - (px_cls * 1.02 * 1.17 * 0.656 * dollar)
-        print(len(ta_cls))
+        print(ta_cls)
         print(self.dt)
 
         ma20 = pd.DataFrame(ta_cls).rolling(window=20).mean().values.flatten()

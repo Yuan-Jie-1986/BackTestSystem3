@@ -1,13 +1,15 @@
 
-host: 192.168.1.172
-port: 27017
-db_name: CBNB
-user: yuanjie
-pwd: yuanjie
+
+Mongo:
+  host: 192.168.1.172
+  port: 27017
+  db_name: CBNB
+  user: yuanjie
+  pwd: yuanjie
 
 
-start_date: '20130101'
-end_date: '20181231'
+start_date: '20181101'
+end_date: '20181227'
 capital: 1e6
 date_type: SHSE # 目前可以选择的是SHSE/NYMEX
 
@@ -16,15 +18,35 @@ turnover: 1  # 持仓天数，通常是针对横截面的策略，对于CTA策�
 data:
 
   bt_price:  # 用于计算pnl的价格，可以是期货价格，也可以是现货价格。这里不要使用非价格的数据。
+
+#    -
+#      name: TA_MIN
+#      collection: FuturesMinMD
+#      db_query:
+#        wind_code: TA.CZC
+#      comodity: TA
+#      fields: [open, close, high, low]
+#      bt_mode: open
+#      trade_unit: 5
+#      margin_ratio: 0.07
+#      tcost: 0
+#      cost_mode: fixed
+#      cost_value: 24
+#      unit_change: unchange
+#      frequency: minutes
+
+
+
+
     -
-      name: TA.CZC  # name为必须字段，用于给该数据起名字
+      name: TA_DAILY  # name为必须字段，用于给该数据起名字
       collection: FuturesMD # 如果没有该字段，则默认为FuturesMD
       db_query:
         wind_code: TA.CZC
       commodity: TA
       fields: [OPEN, CLOSE, HIGH, LOW]
       bt_mode: OPEN # 如果没有该字段，则默认为OPEN
-      trade_unit: 5
+      trade_unit: 5 # 如果没有该字段，则默认为1
       margin_ratio: 0.07 # 如果没有该字段，则默认为1
       tcost: 0 # 如果没有该字段，则默认为0，不计手续费，如果没有cost_mode和cost_value，也会改为0
       cost_mode: fixed
@@ -33,16 +55,16 @@ data:
       switch: 1 # 如果没有该字段，则默认为0，不切换合约
       frequency: daily # 如果没有该字段，则默认为daily
 
-    -
-      name: PX
-      collection: SpotMD
-      db_query:
-        commodity: PX
-      commodity: PX
-      fields: [price]
-      bt_mode: price
-      tcost: 0
-      unit_change: dollar
+#    -
+#      name: PX
+#      collection: SpotMD
+#      db_query:
+#        commodity: PX
+#      commodity: PX
+#      fields: [price]
+#      bt_mode: price
+#      tcost: 0
+#      unit_change: dollar
 
 
 
