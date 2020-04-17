@@ -1116,6 +1116,9 @@ class DataSaving(object):
                         elif 'Error code 401 | Client Error: Eikon API Proxy requires authentication' in e.message:
                             self.logger.info('路透终端没有登录')
                             return
+                        elif 'Invalid RIC' in e.message:
+                            self.logger.info('%s代码是无效代码' % cmd)
+                            return
                         else:
                             raise Exception(e)
                     except ValueError as e:

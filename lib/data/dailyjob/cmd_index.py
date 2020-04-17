@@ -21,7 +21,7 @@ deriv_collection = db['DerivDB']
 
 
 def reconstruction(x):
-    new = pd.Series()
+    new = pd.Series(dtype='float64')
     new['CLOSE'] = (x['CLOSE'] * x['OI']).sum() / x['OI'].sum()
     new['OPEN'] = (x['OPEN'] * x['OI']).sum() / x['OI'].sum()
     new['HIGH'] = (x['HIGH'] * x['OI']).sum() / x['OI'].sum()

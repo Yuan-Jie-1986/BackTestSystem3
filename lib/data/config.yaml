@@ -13,7 +13,7 @@ log_path: "E:\\CBNB\\BackTestSystem3\\data_saving.log"
 collection:
 #  - Information
 #  - FuturesMinMD
-  - FuturesMD
+#  - FuturesMD
   - SpotMD
   - EDB
   - Inventory
@@ -26,6 +26,48 @@ collection:
 
 
 TempDB:
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: L_PP
+    field: feibiao_price_diff
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\bg_db\\feibiao_L_PP_diff.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: L
+    field: import_profit_rate
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\bg_db\\LL_import_profit.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: PP
+    field: import_profit_rate
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\bg_db\\PP_import_profit.csv"
+
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: L_feibiao
+    field: feibiao_price_diff
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\bg_db\\LL_feibiao.csv"
+
+  -
+    source: ManualInput
+    func: getDataFromCSV
+    frequency: daily
+    cmd: PP_feibiao
+    field: feibiao_price_diff
+    path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\bg_db\\PP_feibiao.csv"
+
 
   -
     source: ManualInput
@@ -176,7 +218,7 @@ FuturesMinMD:
     save_mode: CSV
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: CU.SHF
-    cmd: [CU.SHF, CU2006.SHF, CU2007.SHF, CU2003.SHF, CU2004.SHF, CU2005.SHF]
+    cmd: [CU.SHF, CU2006.SHF, CU2007.SHF, CU2008.SHF, CU2004.SHF, CU2005.SHF]
 
   - source: WIND
     frequency: 1min
@@ -184,7 +226,7 @@ FuturesMinMD:
     save_mode: CSV
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: AL.SHF
-    cmd: [AL.SHF, AL2006.SHF, AL2007.SHF, AL2003.SHF, AL2004.SHF, AL2005.SHF]
+    cmd: [AL.SHF, AL2006.SHF, AL2007.SHF, AL2008.SHF, AL2004.SHF, AL2005.SHF]
 
   - source: WIND
     frequency: 1min
@@ -192,7 +234,7 @@ FuturesMinMD:
     save_mode: CSV
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: ZN.SHF
-    cmd: [ZN.SHF, ZN2006.SHF, ZN2007.SHF, ZN2003.SHF, ZN2004.SHF, ZN2005.SHF]
+    cmd: [ZN.SHF, ZN2006.SHF, ZN2007.SHF, ZN2008.SHF, ZN2004.SHF, ZN2005.SHF]
 
   - source: WIND
     frequency: 1min
@@ -200,7 +242,7 @@ FuturesMinMD:
     save_mode: CSV
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: NI.SHF
-    cmd: [NI.SHF, NI2006.SHF, NI2007.SHF, NI2003.SHF, NI2004.SHF, NI2005.SHF]
+    cmd: [NI.SHF, NI2006.SHF, NI2007.SHF, NI2008.SHF, NI2004.SHF, NI2005.SHF]
 
   - source: WIND
     frequency: 1min
@@ -216,7 +258,7 @@ FuturesMinMD:
     save_mode: CSV
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: AG.SHF
-    cmd: [AG.SHF, AG2003.SHF, AG2004.SHF, AG2005.SHF, AG2006.SHF, AG2007.SHF, AG2008.SHF]
+    cmd: [AG.SHF, AG2009.SHF, AG2004.SHF, AG2005.SHF, AG2006.SHF, AG2007.SHF, AG2008.SHF]
 
   - source: WIND
     frequency: 1min
@@ -241,7 +283,7 @@ FuturesMinMD:
     save_mode: CSV
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: SC.INE
-    cmd: [SC.INE, SC2005.INE, SC2003.INE, SC2004.INE]
+    cmd: [SC.INE, SC2005.INE, SC2006.INE, SC2004.INE]
 
 
   -
@@ -253,7 +295,7 @@ FuturesMinMD:
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: LCO
     data_type: futures
-    cmd: [LCOc1, LCOc2, LCOc3, LCOc4, LCOc5, LCOc6, LCOF3, LCOG3, LCOH3, LCOJ0, LCOK0, LCOM0, LCON0, LCOQ0, LCOU0,
+    cmd: [LCOc1, LCOc2, LCOc3, LCOc4, LCOc5, LCOc6, LCOF3, LCOG3, LCOH3, LCOJ3, LCOK3, LCOM0, LCON0, LCOQ0, LCOU0,
           LCOV0, LCOX0, LCOZ0, LCOF1, LCOG1, LCOH1, LCOJ1, LCOK1, LCOM1, LCON1, LCOQ1, LCOU1, LCOV1, LCOX1, LCOZ1,
           LCOF2, LCOG2, LCOH2, LCOJ2, LCOK2, LCOM2, LCON2, LCOQ2, LCOU2, LCOV2, LCOX2, LCOZ2]
 
@@ -265,7 +307,7 @@ FuturesMinMD:
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: CL
     data_type: futures
-    cmd: [CLc1, CLc2, CLc3, CLc4, CLc5, CLc6, CLF3, CLG3, CLH0, CLJ0, CLK0, CLM0, CLN0, CLQ0, CLU0, CLV0, CLX0, CLZ0,
+    cmd: [CLc1, CLc2, CLc3, CLc4, CLc5, CLc6, CLF3, CLG3, CLH3, CLJ0, CLK0, CLM0, CLN0, CLQ0, CLU0, CLV0, CLX0, CLZ0,
           CLF1, CLG1, CLH1, CLJ1, CLK1, CLM1, CLN1, CLQ1, CLU1, CLV1, CLX1, CLZ1, CLF2, CLG2, CLH2, CLJ2, CLK2, CLM2,
           CLN2, CLQ2, CLU2, CLV2, CLX2, CLZ2]
 
@@ -277,8 +319,8 @@ FuturesMinMD:
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: GC
     data_type: futures
-    cmd: [GCc1, GCc2, GCc3, GCc4, GCc5, GCc6, GCZ9, GCF0, GCG0, GCJ0, GCM0, GCQ0, GCV0, GCZ0, GCG1, GCJ1, GCM1, GCQ1,
-          GCV1, GCZ1]
+    cmd: [GCc1, GCc2, GCc3, GCc4, GCc5, GCc6, GCF2, GCG2, GCH0, GCJ0, GCK0, GCM0, GCN0, GCQ0, GCU0, GCV0, GCX0, GCZ0,
+          GCF1, GCG1, GCH1, GCJ1, GCK1, GCM1, GCN1, GCQ1, GCU1, GCV1, GCX1, GCZ1]
 
   - source: ThomsonReuters
     func: getPriceFromRT
@@ -288,8 +330,8 @@ FuturesMinMD:
     save_path: "E:\\CBNB\\BackTestSystem3\\BT_DATA\\RAW_DATA\\"
     category: SI
     data_type: futures
-    cmd: [SIc1, SIc2, SIc3, SIc4, SIc5, SIc6, SIZ9, SIF0, SIG0, SIH0, SIK0, SIN0, SIU0, SIZ0, SIF1, SIH1, SIK1, SIN1,
-          SIU1, SIZ1]
+    cmd: [SIc1, SIc2, SIc3, SIc4, SIc5, SIc6, SIF2, SIG2, SIH0, SIJ0, SIK0, SIM0, SIN0, SIQ0, SIU0, SIV0, SIX0, SIZ0,
+          SIF1, SIG1, SIH1, SIJ1, SIK1, SIM1, SIN1, SIQ1, SIU1, SIV1, SIX1, SIZ1]
 
 FuturesMD:
   -
@@ -684,6 +726,12 @@ SpotMD:
     path: "E:\\CBNB\\BackTestSystem3\\lib\\data\\supplement_db\\SM.csv"
 
 EDB:
+  - func: getEDBFromWind
+    source: WIND
+    cmd: M0041653
+    edb_name: "银行间质押式回购加权利率:7天"
+    unit: "%"
+    frequency: Daily
   -
     func: getEDBFromWind
     source: WIND
