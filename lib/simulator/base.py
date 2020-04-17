@@ -388,6 +388,7 @@ class TradeRecordByDay(object):
         self.daily_pnl = 0  # 每日的pnl
         self.daily_margin_occ = 0  # 每日的保证金占用情况
         self.daily_commodity_value = 0  # 每日的合约价值
+        self.net_commodity_value = 0  # 每日的净货值
 
     def addNewPositon(self):
 
@@ -454,11 +455,14 @@ class TradeRecordByDay(object):
                                  self.mkdata[k]['multiplier'] * self.mkdata[k]['margin_ratio']
                 new_commodity_value = abs(self.holdPosition[k]['volume']) * self.mkdata[k]['CLOSE'] * self.mkdata[k]['ExRate'] * \
                                       self.mkdata[k]['multiplier']
+                net_commodity_value = self.holdPosition[k]['volume'] * self.mkdata[k]['CLOSE'] * self.mkdata[k]['ExRate'] * \
+                                      self.mkdata[k]['multiplier']
 
                 self.daily_margin_occ += new_margin_occ
                 self.daily_commodity_value += new_commodity_value
+                self.net_commodity_value += net_commodity_value
 
-        return self.daily_pnl, self.daily_margin_occ, self.daily_commodity_value
+        return self.daily_pnl, self.daily_margin_occ, self.daily_commodity_value, self.net_commodity_value
 
     def getHoldPosition(self):
         return self.holdPosition
@@ -1062,6 +1066,7 @@ class BacktestSys(object):
         pnl_daily = np.zeros_like(self.dt).astype('float')
         margin_occ_daily = np.zeros_like(self.dt).astype('float')
         value_daily = np.zeros_like(self.dt).astype('float')
+        net_value_daily = np.zeros_like(self.dt).astype('float')
         turnover_daily = np.zeros_like(self.dt).astype('float')
 
         holdpos = {}
@@ -1257,11 +1262,11 @@ class BacktestSys(object):
 
             trd = TradeRecordByDay(dt=v, holdPosDict=holdpos, MkData=mkdata, newTrade=newtradedaily)
             trd.addNewPositon()
-            pnl_daily[i], margin_occ_daily[i], value_daily[i] = trd.getFinalMK()
+            pnl_daily[i], margin_occ_daily[i], value_daily[i], net_value_daily[i] = trd.getFinalMK()
             holdpos = trd.getHoldPosition()
             turnover_daily[i] = turnover_daily[i] / self.capital
 
-        return pnl_daily, margin_occ_daily, value_daily, turnover_daily
+        return pnl_daily, margin_occ_daily, value_daily, net_value_daily, turnover_daily
 
     def getNV(self, holdingsObj):
         # 计算总的资金曲线变化情况
@@ -1594,7 +1599,7 @@ class BacktestSys(object):
         # saveLocal是逻辑变量，是否将结果存在本地
 
 
-        pnl, margin_occ, value, turnover_rate = self.getPnlDaily(holdingsObj)
+        pnl, margin_occ, value, net_value, turnover_rate = self.getPnlDaily(holdingsObj)
         # print 'nv'
         # df_pnl = pd.DataFrame(np.cumsum(pnl), index=self.dt)
         # df_pnl.to_clipboard()
@@ -1621,9 +1626,9 @@ class BacktestSys(object):
             holdings_df.to_csv(os.path.join(save_path, 'holdings.csv'))
 
             # 保存总的回测结果为result.csv
-            total_df = pd.DataFrame({u'每日PnL': pnl, u'净值': nv, u'资金占用比例': margin_occ_ratio,
-                                     u'杠杆倍数': leverage, '换手率': turnover_rate}, index=self.dt)
-            total_df.to_csv(os.path.join(save_path, 'result.csv'), encoding='utf-8')
+            total_df = pd.DataFrame({'每日PnL': pnl, '净值': nv, '资金占用比例': margin_occ_ratio, '杠杆倍数': leverage,
+                                     '换手率': turnover_rate, '总货值': value, '净货值': net_value}, index=self.dt)
+            total_df.to_csv(os.path.join(save_path, 'result.csv'), encoding='GBK')
 
             # 保存交易记录为trade_detail.csv
             detail_df = pd.DataFrame()
@@ -1814,7 +1819,7 @@ class BacktestSys(object):
 
     def getTotalResult(self, holdingsObj, show=True, sub_group='year'):
 
-        pnl, margin_occ, value, turnover_rate = self.getPnlDaily(holdingsObj)
+        pnl, margin_occ, value, net_value, turnover_rate = self.getPnlDaily(holdingsObj)
         nv = 1. + np.cumsum(pnl) / self.capital  # 转换成初始净值为1
         res = self.calcIndicatorBySub(nv, turnover_rate, show=show, sub_group=sub_group)
         return res
